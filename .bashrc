@@ -7,3 +7,4 @@ eval "$(atuin init bash)"
 [ -s "/Users/astradurs/.scm_breeze/scm_breeze.sh" ] && source "/Users/astradurs/.scm_breeze/scm_breeze.sh"
 
 . "$HOME/.local/bin/env"
+. "$HOME/.cargo/env"

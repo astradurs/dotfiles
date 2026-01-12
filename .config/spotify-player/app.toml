@@ -1,11 +1,17 @@
 theme = "dracula"
-client_id = "65b708073fc0480ea92a077233ca87bd"
+client_id = "8cc21a9c2d464d3a9c15cc408473e943"
 client_port = 8080
 login_redirect_uri = "http://127.0.0.1:8989/login"
 playback_format = """
-{status} {track} • {artists}
-{album}
+{status} {track} • {artists} {liked}
+{album} • {genres}
 {metadata}"""
+playback_metadata_fields = [
+    "repeat",
+    "shuffle",
+    "volume",
+    "device",
+]
 notify_timeout_in_secs = 0
 tracks_playback_limit = 50
 app_refresh_duration_in_ms = 32
@@ -16,6 +22,8 @@ pause_icon = "▌▌"
 liked_icon = "♥"
 border_type = "Plain"
 progress_bar_type = "Rectangle"
+progress_bar_position = "Bottom"
+genre_num = 2
 cover_img_length = 9
 cover_img_width = 5
 cover_img_scale = 1.0
@@ -26,6 +34,7 @@ enable_cover_image_cache = true
 default_device = "spotify-player"
 notify_streaming_only = false
 seek_duration_secs = 5
+sort_artist_albums_by_type = false
 
 [notify_format]
 summary = "{track} • {artists}"
