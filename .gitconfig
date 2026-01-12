@@ -1,0 +1,20 @@
+[include]
+	path = ~/.gitconfig.local
+[user]
+	# Set your name and email in ~/.gitconfig.local
+	# Example:
+	# [user]
+	#     name = Your Name
+	#     email = your.email@example.com
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[init]
+	defaultBranch = main
+[credential]
+	helper = 
+	helper = /usr/local/share/gcm-core/git-credential-manager
+[credential "https://dev.azure.com"]
+	useHttpPath = true
