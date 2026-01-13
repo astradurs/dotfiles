@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Script to kill all node processes
+
+echo "=== Killing Node Processes ==="
+echo ""
+
+# Check if any node processes are running
+if ! pgrep -x "node" > /dev/null 2>&1; then
+    echo "No node processes found."
+    exit 0
+fi
+
+# Count processes before killing
+COUNT=$(pgrep -x "node" | wc -l | tr -d ' ')
+echo "Found $COUNT node process(es)."
+echo ""
+
+# List the processes that will be killed
+echo "Processes to be killed:"
+ps aux | grep -E "[n]ode" | awk '{
+    pid = $2
+    cmd = ""
+    for (i = 11; i <= NF; i++) {
+        cmd = cmd $i " "
+    }
+    if (length(cmd) > 60) {
+        cmd = substr(cmd, 1, 57) "..."
+    }
+    printf "  PID %-8s: %s\n", pid, cmd
+}'
+echo ""
+
+# Ask for confirmation
+read -p "Kill all these processes? (y/N): " -n 1 -r
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Killing node processes..."
+
+    # Try graceful termination first (SIGTERM)
+    pkill -TERM -x "node"
+
+    # Wait a moment for processes to terminate
+    sleep 2
+
+    # Force kill any remaining processes (SIGKILL)
+    if pgrep -x "node" > /dev/null 2>&1; then
+        echo "Some processes didn't respond to SIGTERM, force killing..."
+        pkill -KILL -x "node"
+        sleep 1
+    fi
+
+    # Check if any processes remain
+    if pgrep -x "node" > /dev/null 2>&1; then
+        echo "Warning: Some node processes may still be running."
+        REMAINING=$(pgrep -x "node" | wc -l | tr -d ' ')
+        echo "Remaining processes: $REMAINING"
+    else
+        echo "All node processes have been terminated."
+    fi
+else
+    echo "Operation cancelled."
+    exit 0
+fi

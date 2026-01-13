@@ -76,6 +76,9 @@ source $ZSH/oh-my-zsh.sh
 
 # User configuration
 
+# Source shared profile (aliases, etc.)
+[[ -f ~/.profile ]] && source ~/.profile
+
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
