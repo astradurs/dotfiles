@@ -1,4 +1,7 @@
 
+# Source shared profile (aliases, etc.)
+[[ -f ~/.profile ]] && source ~/.profile
+
 [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
 eval "$(atuin init bash)"
 

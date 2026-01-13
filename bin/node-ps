@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Script to list all node processes with their resource usage
+
+echo "=== Node Processes ==="
+echo ""
+
+# Check if any node processes are running
+if ! pgrep -x "node" > /dev/null 2>&1; then
+    echo "No node processes found."
+    exit 0
+fi
+
+# Display header
+printf "%-8s %-6s %-6s %-50s\n" "PID" "CPU%" "MEM%" "COMMAND"
+printf "%-8s %-6s %-6s %-50s\n" "--------" "------" "------" "--------------------------------------------------"
+
+# List all node processes with resource information
+ps aux | grep -E "[n]ode" | awk '{
+    pid = $2
+    cpu = $3
+    mem = $4
+    # Reconstruct command from remaining fields
+    cmd = ""
+    for (i = 11; i <= NF; i++) {
+        cmd = cmd $i " "
+    }
+    # Truncate command if too long
+    if (length(cmd) > 50) {
+        cmd = substr(cmd, 1, 47) "..."
+    }
+    printf "%-8s %-6s %-6s %-50s\n", pid, cpu "%", mem "%", cmd
+}'
+
+echo ""
+echo "Total node processes: $(pgrep -x "node" | wc -l | tr -d ' ')"
