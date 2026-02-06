@@ -155,5 +155,6 @@ git-pull() {
   return $pull_exit
 }
 alias gpl="git-pull"
+alias yolo="claude --dangerously-skip-permissions"
 
 . "$HOME/.local/bin/env"
