@@ -32,3 +32,9 @@ credentials.json
 
 # Other sensitive configs
 .config/spotify-player/cache/
+
+# Brewfile lock (machine-specific)
+Brewfile.lock.json
+
+# Planning docs (local only)
+.planning/
