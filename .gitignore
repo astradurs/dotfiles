@@ -36,5 +36,8 @@ credentials.json
 # Brewfile lock (machine-specific)
 Brewfile.lock.json
 
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+
 # Planning docs (local only)
 .planning/
