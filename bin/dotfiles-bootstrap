@@ -1,0 +1,215 @@
+#!/bin/bash
+
+# Bootstrap script for setting up a fresh macOS machine using this dotfiles repo.
+# Idempotent — safe to re-run at any time.
+
+set -e
+
+DOTFILES_DIR="$HOME/dotfiles"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+# Track what happened for the summary
+INSTALLED=()
+SKIPPED=()
+
+info()  { echo -e "${BOLD}==> $1${RESET}"; }
+ok()    { echo -e "  ${GREEN}✓ $1${RESET}"; }
+skip()  { echo -e "  ${YELLOW}⊘ $1${RESET}"; }
+fail()  { echo -e "  ${RED}✗ $1${RESET}"; }
+
+# --------------------------------------------------------------------------
+# 1. Homebrew
+# --------------------------------------------------------------------------
+setup_homebrew() {
+    info "Checking Homebrew"
+
+    if command -v brew &>/dev/null; then
+        skip "Homebrew already installed"
+        SKIPPED+=("Homebrew")
+    else
+        echo "  Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+        # Add brew to PATH for the rest of this script (Apple Silicon vs Intel)
+        if [[ -f /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [[ -f /usr/local/bin/brew ]]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+
+        if ! command -v brew &>/dev/null; then
+            fail "Homebrew installation failed"
+            exit 1
+        fi
+
+        brew update
+        ok "Homebrew installed"
+        INSTALLED+=("Homebrew")
+    fi
+}
+
+# --------------------------------------------------------------------------
+# 2. Brew bundle
+# --------------------------------------------------------------------------
+setup_brew_bundle() {
+    info "Running brew bundle"
+
+    if [[ ! -f "$DOTFILES_DIR/Brewfile" ]]; then
+        fail "Brewfile not found at $DOTFILES_DIR/Brewfile"
+        exit 1
+    fi
+
+    if brew bundle --file="$DOTFILES_DIR/Brewfile"; then
+        ok "Brew bundle complete"
+    else
+        fail "Some packages failed to install (see output above)"
+        ok "Brew bundle finished with warnings"
+    fi
+    INSTALLED+=("Brew packages")
+}
+
+# --------------------------------------------------------------------------
+# 3. Oh My Zsh
+# --------------------------------------------------------------------------
+setup_omz() {
+    info "Checking Oh My Zsh"
+
+    if [[ -d "$HOME/.oh-my-zsh" ]]; then
+        skip "Oh My Zsh already installed"
+        SKIPPED+=("Oh My Zsh")
+    else
+        echo "  Installing Oh My Zsh..."
+        RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+        ok "Oh My Zsh installed"
+        INSTALLED+=("Oh My Zsh")
+    fi
+}
+
+# --------------------------------------------------------------------------
+# 4. Default shell
+# --------------------------------------------------------------------------
+setup_default_shell() {
+    info "Checking default shell"
+
+    if [[ "$SHELL" == */zsh ]]; then
+        skip "Default shell is already zsh"
+        SKIPPED+=("Default shell")
+    else
+        echo "  Setting zsh as default shell..."
+        chsh -s "$(which zsh)"
+        ok "Default shell set to zsh"
+        INSTALLED+=("Default shell → zsh")
+    fi
+}
+
+# --------------------------------------------------------------------------
+# 5. Git config (local)
+# --------------------------------------------------------------------------
+setup_git_config() {
+    info "Checking git config"
+
+    local should_write=false
+
+    if [[ -f "$HOME/.gitconfig.local" ]]; then
+        local current_name current_email
+        current_name=$(git config --file "$HOME/.gitconfig.local" user.name 2>/dev/null || echo "")
+        current_email=$(git config --file "$HOME/.gitconfig.local" user.email 2>/dev/null || echo "")
+
+        echo "  Current git identity:"
+        echo "    name:  ${current_name:-(not set)}"
+        echo "    email: ${current_email:-(not set)}"
+        echo ""
+
+        read -rp "  Update git identity? (y/N): " reply
+        if [[ "$reply" =~ ^[Yy]$ ]]; then
+            should_write=true
+        else
+            skip "Keeping existing git config"
+            SKIPPED+=("Git config")
+        fi
+    else
+        should_write=true
+    fi
+
+    if $should_write; then
+        read -rp "  Git name: " git_name
+        read -rp "  Git email: " git_email
+
+        cat > "$HOME/.gitconfig.local" <<EOF
+[user]
+	name = $git_name
+	email = $git_email
+EOF
+        ok "Wrote ~/.gitconfig.local"
+        INSTALLED+=("Git config")
+    fi
+}
+
+# --------------------------------------------------------------------------
+# 6. Stow
+# --------------------------------------------------------------------------
+setup_stow() {
+    info "Running stow"
+
+    if ! command -v stow &>/dev/null; then
+        fail "stow not found — should have been installed via brew bundle"
+        exit 1
+    fi
+
+    if (cd "$DOTFILES_DIR" && stow . 2>&1); then
+        ok "Symlinks created"
+    else
+        fail "Stow encountered conflicts (see output above)"
+        echo "  Tip: resolve conflicts manually, or use 'stow --adopt .' to adopt existing files"
+        INSTALLED+=("Stow symlinks (with conflicts)")
+        return
+    fi
+    INSTALLED+=("Stow symlinks")
+}
+
+# --------------------------------------------------------------------------
+# Summary
+# --------------------------------------------------------------------------
+print_summary() {
+    echo ""
+    echo -e "${BOLD}=== Bootstrap Summary ===${RESET}"
+    echo ""
+
+    if [[ ${#INSTALLED[@]} -gt 0 ]]; then
+        echo -e "${GREEN}Set up:${RESET}"
+        for item in "${INSTALLED[@]}"; do
+            echo -e "  ${GREEN}✓${RESET} $item"
+        done
+    fi
+
+    if [[ ${#SKIPPED[@]} -gt 0 ]]; then
+        echo -e "${YELLOW}Already in place:${RESET}"
+        for item in "${SKIPPED[@]}"; do
+            echo -e "  ${YELLOW}⊘${RESET} $item"
+        done
+    fi
+
+    echo ""
+    echo -e "${GREEN}Done!${RESET} Open a new terminal to pick up all changes."
+}
+
+# --------------------------------------------------------------------------
+# Main
+# --------------------------------------------------------------------------
+echo ""
+echo -e "${BOLD}dotfiles bootstrap${RESET}"
+echo ""
+
+setup_homebrew
+setup_brew_bundle
+setup_omz
+setup_default_shell
+setup_git_config
+setup_stow
+print_summary
