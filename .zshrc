@@ -127,10 +127,32 @@ eval "$(zoxide init zsh)"
 # starship eval
 eval "$(starship init zsh)"
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 [ -s "/Users/astradurs/.scm_breeze/scm_breeze.sh" ] && source "/Users/astradurs/.scm_breeze/scm_breeze.sh"
+
+# Wrap git pull to detect package file changes
+git-pull() {
+  local old_head
+  old_head=$(command git rev-parse HEAD 2>/dev/null)
+
+  command git pull "$@"
+  local pull_exit=$?
+
+  if [[ $pull_exit -eq 0 && -n "$old_head" ]]; then
+    local new_head
+    new_head=$(command git rev-parse HEAD 2>/dev/null)
+    if [[ "$old_head" != "$new_head" ]]; then
+      local changed_files
+      changed_files=$(command git diff --name-only "$old_head" "$new_head")
+      if echo "$changed_files" | command grep -qE '^package(-lock)?\.json$'; then
+        echo ""
+        echo "\033[1;33m⚠️  package.json or package-lock.json changed — you may need to run npm install 📦\033[0m"
+      fi
+    fi
+  fi
+
+  return $pull_exit
+}
+alias gpl="git-pull"
 
 . "$HOME/.local/bin/env"
