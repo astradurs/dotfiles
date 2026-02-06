@@ -144,9 +144,10 @@ git-pull() {
     if [[ "$old_head" != "$new_head" ]]; then
       local changed_files
       changed_files=$(command git diff --name-only "$old_head" "$new_head")
-      if echo "$changed_files" | command grep -qE '^package(-lock)?\.json$'; then
+      if echo "$changed_files" | command grep -qE '(^|/)package(-lock)?\.json$'; then
         echo ""
-        echo "\033[1;33m⚠️  package.json or package-lock.json changed — you may need to run npm install 📦\033[0m"
+        echo "\033[1;33m📦 package.json or package-lock.json changed — running npm install...\033[0m"
+        npm install
       fi
     fi
   fi
