@@ -3,9 +3,9 @@
 # Generate a daily work report by summarizing git commits across work repos
 # Uses Claude to create a lively, emoji-rich summary for sharing with the team
 
-REPOS_DIR="$HOME/Documents/Work/Repos"
-REPOS=("backend" "web-app" "admin" "dashboard")
-AUTHOR="me@work.example"
+REPOS_DIR="${WORK_REPOS_DIR:-$HOME/Documents/Work/Repos}"
+read -ra REPOS <<< "${WORK_REPOS:-backend web-app admin dashboard}"
+AUTHOR="${WORK_GIT_AUTHOR:-me@work.example}"
 DATE="${1:-today}"
 
 echo "=== Daily Report Generator ==="
