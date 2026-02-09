@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Generate a daily work report by summarizing git commits across Maul repos
+# Uses Claude to create a lively, emoji-rich summary for sharing with the team
+
+REPOS_DIR="$HOME/Documents/Maul/Repos"
+REPOS=("maul-backend" "foodie-web" "kitchen-web" "dashboard")
+AUTHOR="astradur@maul.is"
+DATE="${1:-today}"
+
+commits=""
+
+for repo in "${REPOS[@]}"; do
+    repo_path="$REPOS_DIR/$repo"
+    if [ ! -d "$repo_path/.git" ]; then
+        continue
+    fi
+
+    repo_commits=$(/usr/bin/git -C "$repo_path" log \
+        --author="$AUTHOR" \
+        --since="$DATE 00:00" \
+        --until="$DATE 23:59" \
+        --format="%h %s" \
+        2>/dev/null)
+
+    if [ -n "$repo_commits" ]; then
+        commits+="
+## $repo
+$repo_commits
+"
+    fi
+done
+
+if [ -z "$commits" ]; then
+    echo "No commits found for $DATE across repos: ${REPOS[*]}"
+    exit 0
+fi
+
+prompt="Here are my git commits from today across our work repositories:
+$commits
+
+Please write a daily work report summarizing what I accomplished today. The report should be:
+- Written for sharing with superiors and colleagues in a team chat
+- Organized by project/repo
+- Use plenty of emojis to make it lively and fun to read
+- Keep it concise but informative
+- Use bullet points
+- Start with a greeting and end with a sign-off
+- Don't include commit hashes, just summarize the work done"
+
+claude --dangerously-skip-permissions -p "$prompt"
