@@ -3,9 +3,9 @@
 # Generate a daily work report by summarizing git commits across Maul repos
 # Uses Claude to create a lively, emoji-rich summary for sharing with the team
 
-REPOS_DIR="$HOME/Documents/Maul/Repos"
-REPOS=("maul-backend" "foodie-web" "kitchen-web" "dashboard")
-AUTHOR="astradur@maul.is"
+REPOS_DIR="${MAUL_REPOS_DIR:-$HOME/Documents/Maul/Repos}"
+read -ra REPOS <<< "${MAUL_REPOS:-maul-backend foodie-web kitchen-web dashboard}"
+AUTHOR="${MAUL_GIT_AUTHOR:-astradur@maul.is}"
 DATE="${1:-today}"
 
 echo "=== Daily Report Generator ==="
