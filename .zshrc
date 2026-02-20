@@ -76,6 +76,11 @@ source $ZSH/oh-my-zsh.sh
 
 # User configuration
 
+# Asana config for ~/bin/task-sync-asana
+# ASANA_PAT is loaded from ~/.secrets (not tracked in dotfiles)
+[[ -f ~/.secrets ]] && source ~/.secrets
+export ASANA_WORKSPACE_GID="664900330893021"
+
 # Source shared profile (aliases, etc.)
 [[ -f ~/.profile ]] && source ~/.profile
 
