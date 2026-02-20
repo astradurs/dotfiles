@@ -28,7 +28,7 @@ ASANA_WORKSPACE_GID="${ASANA_WORKSPACE_GID:-}" # Workspace GID
 #   tw_asana_sync \
 #     --taskwarrior-tags asana \
 #     --asana-workspace-gid "$ASANA_WORKSPACE_GID" \
-#     --asana-token "$ASANA_PAT"
+#     --token "$ASANA_PAT"
 #
 # To sync only specific Asana projects, add:
 #   --asana-project-gid <PROJECT_GID>
@@ -48,10 +48,10 @@ sync_with_syncall() {
         exit 1
     fi
 
+    export ASANA_PERSONAL_ACCESS_TOKEN="$ASANA_PAT"
     tw_asana_sync \
         --taskwarrior-tags asana \
-        --asana-workspace-gid "$ASANA_WORKSPACE_GID" \
-        --asana-token "$ASANA_PAT"
+        --asana-workspace-gid "$ASANA_WORKSPACE_GID"
 }
 
 # ---------------------------------------------------------------------------
@@ -83,4 +83,4 @@ echo ""
 echo "See docs/taskwarrior.md for full setup instructions."
 
 # Uncomment when ready:
-# sync_with_syncall
+sync_with_syncall
