@@ -13,6 +13,8 @@ brew "fnm"
 brew "fzf"
 # GitHub command-line tool
 brew "gh"
+# Render markdown on the CLI
+brew "glow"
 # Distributed revision control system
 brew "git"
 # Manage your Java environment
