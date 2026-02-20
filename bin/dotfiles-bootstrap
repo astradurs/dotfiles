@@ -152,7 +152,30 @@ EOF
 }
 
 # --------------------------------------------------------------------------
-# 6. Stow
+# 6. Taskwarrior
+# --------------------------------------------------------------------------
+setup_taskwarrior() {
+    info "Checking Taskwarrior"
+
+    if [[ -d "$HOME/.task" ]]; then
+        skip "Taskwarrior data directory already exists"
+        SKIPPED+=("Taskwarrior data dir")
+    else
+        echo "  Creating Taskwarrior data directory..."
+        mkdir -p "$HOME/.task"
+        ok "Created ~/.task"
+        INSTALLED+=("Taskwarrior data dir")
+    fi
+
+    if command -v task &>/dev/null; then
+        ok "Taskwarrior $(task --version 2>/dev/null || echo 'installed')"
+    else
+        skip "Taskwarrior not yet installed (will be available after brew bundle)"
+    fi
+}
+
+# --------------------------------------------------------------------------
+# 7. Stow
 # --------------------------------------------------------------------------
 setup_stow() {
     info "Running stow"
@@ -211,5 +234,6 @@ setup_brew_bundle
 setup_omz
 setup_default_shell
 setup_git_config
+setup_taskwarrior
 setup_stow
 print_summary
