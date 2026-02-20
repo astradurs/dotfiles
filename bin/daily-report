@@ -11,7 +11,9 @@ DATE="${1:-today}"
 echo "=== Daily Report Generator ==="
 echo "Date: $DATE"
 echo "Author: $AUTHOR"
+echo "Repos dir: $REPOS_DIR"
 echo "Scanning repos: ${REPOS[*]}"
+echo "Search: --all --shortstat"
 echo ""
 
 commits=""
@@ -24,15 +26,17 @@ for repo in "${REPOS[@]}"; do
     fi
 
     repo_commits=$(/usr/bin/git -C "$repo_path" log \
+        --all \
         --author="$AUTHOR" \
         --since="$DATE 00:00" \
         --until="$DATE 23:59" \
         --format="%h %s" \
-        --stat \
+        --shortstat \
         2>/dev/null)
 
     if [ -n "$repo_commits" ]; then
         commit_count=$(/usr/bin/git -C "$repo_path" log \
+            --all \
             --author="$AUTHOR" \
             --since="$DATE 00:00" \
             --until="$DATE 23:59" \
@@ -50,13 +54,57 @@ done
 
 echo ""
 
-if [ -z "$commits" ]; then
-    echo "No commits found for $DATE. Nothing to report."
+# Gather merged PRs across repos
+prs=""
+echo "Scanning for merged PRs..."
+for repo in "${REPOS[@]}"; do
+    repo_path="$REPOS_DIR/$repo"
+    if [ ! -d "$repo_path/.git" ]; then
+        continue
+    fi
+
+    # Get the GitHub remote to determine owner/repo
+    remote_url=$(/usr/bin/git -C "$repo_path" remote get-url origin 2>/dev/null)
+    if [ -z "$remote_url" ]; then
+        continue
+    fi
+
+    # Resolve DATE to YYYY-MM-DD for GitHub search
+    if [ "$DATE" = "today" ]; then
+        search_date=$(date '+%Y-%m-%d')
+    else
+        search_date=$(date -j -f '%Y-%m-%d' "$DATE" '+%Y-%m-%d' 2>/dev/null || echo "$DATE")
+    fi
+
+    repo_prs=$(gh pr list \
+        --repo "$remote_url" \
+        --author "@me" \
+        --state merged \
+        --search "merged:$search_date" \
+        --json number,title,mergedAt \
+        --template '{{range .}}#{{.number}} {{.title}} (merged {{timeago .mergedAt}}){{"\n"}}{{end}}' \
+        2>/dev/null)
+
+    if [ -n "$repo_prs" ]; then
+        pr_count=$(echo "$repo_prs" | wc -l | tr -d ' ')
+        echo "  [$repo] $pr_count PR(s) merged"
+        prs+="
+## $repo (PRs)
+$repo_prs
+"
+    fi
+done
+
+echo ""
+
+if [ -z "$commits" ] && [ -z "$prs" ]; then
+    echo "No commits or PRs found for $DATE. Nothing to report."
     exit 0
 fi
 
-prompt="Here are my git commits from today across our work repositories:
+prompt="Here are my git commits and merged PRs from today across our work repositories:
 $commits
+$prs
 
 Please write a daily work report summarizing what I accomplished today. The report should be:
 - Written for sharing with superiors and colleagues in a team chat
