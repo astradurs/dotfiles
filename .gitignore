@@ -39,5 +39,8 @@ Brewfile.lock.json
 # Claude Code local settings (machine-specific)
 .claude/settings.local.json
 
+# Taskwarrior data (local only)
+.task/
+
 # Planning docs (local only)
 .planning/

@@ -15,6 +15,7 @@ This repository contains configuration files for:
 - **GitHub CLI**: `gh` configuration
 - **Neofetch**: System information tool
 - **Spotify Player**: Terminal Spotify client
+- **Taskwarrior**: Task management with custom UDAs and reports ([docs](docs/taskwarrior.md))
 
 ## Prerequisites
 

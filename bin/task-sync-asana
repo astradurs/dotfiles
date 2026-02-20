@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# task-sync-asana — Sync Taskwarrior tasks with Asana
+#
+# STATUS: Scaffold — not yet functional. Needs an Asana PAT and workspace GID.
+#
+# This script documents two approaches:
+#   1. syncall (recommended) — a Python tool that syncs TW <-> Asana bidirectionally
+#   2. Custom script fallback — using the Asana REST API directly
+
+set -e
+
+# ---------------------------------------------------------------------------
+# Configuration (fill these in)
+# ---------------------------------------------------------------------------
+ASANA_PAT="${ASANA_PAT:-}"                   # Personal Access Token
+ASANA_WORKSPACE_GID="${ASANA_WORKSPACE_GID:-}" # Workspace GID
+
+# ---------------------------------------------------------------------------
+# Option 1: syncall (recommended)
+# ---------------------------------------------------------------------------
+# Install:
+#   pip install syncall[asana,tw]
+#   — or —
+#   uv pip install syncall[asana,tw]
+#
+# Run:
+#   tw_asana_sync \
+#     --taskwarrior-tags asana \
+#     --asana-workspace-gid "$ASANA_WORKSPACE_GID" \
+#     --asana-token "$ASANA_PAT"
+#
+# To sync only specific Asana projects, add:
+#   --asana-project-gid <PROJECT_GID>
+#
+# For a dry run:
+#   tw_asana_sync --taskwarrior-tags asana --asana-workspace-gid "$ASANA_WORKSPACE_GID" --dry-run
+
+sync_with_syncall() {
+    if ! command -v tw_asana_sync &>/dev/null; then
+        echo "Error: syncall not installed."
+        echo "Install with: uv pip install 'syncall[asana,tw]'"
+        exit 1
+    fi
+
+    if [[ -z "$ASANA_PAT" || -z "$ASANA_WORKSPACE_GID" ]]; then
+        echo "Error: Set ASANA_PAT and ASANA_WORKSPACE_GID environment variables."
+        exit 1
+    fi
+
+    tw_asana_sync \
+        --taskwarrior-tags asana \
+        --asana-workspace-gid "$ASANA_WORKSPACE_GID" \
+        --asana-token "$ASANA_PAT"
+}
+
+# ---------------------------------------------------------------------------
+# Option 2: Custom script fallback (TODO)
+# ---------------------------------------------------------------------------
+# TODO: Implement direct Asana API sync if syncall doesn't meet needs.
+#
+# Asana API docs: https://developers.asana.com/reference
+#
+# Rough approach:
+#   1. Export TW tasks with source:asana → JSON
+#   2. Fetch Asana tasks via REST API
+#   3. Diff and reconcile
+#   4. Push updates both directions
+#   5. Update asana_gid UDA on new TW tasks
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+echo "task-sync-asana: Not yet configured."
+echo ""
+echo "To set up:"
+echo "  1. Create an Asana PAT at https://app.asana.com/0/developer-console"
+echo "  2. Export ASANA_PAT=<your-token>"
+echo "  3. Export ASANA_WORKSPACE_GID=<your-workspace-gid>"
+echo "  4. Install syncall: uv pip install 'syncall[asana,tw]'"
+echo "  5. Uncomment the sync_with_syncall call below"
+echo ""
+echo "See docs/taskwarrior.md for full setup instructions."
+
+# Uncomment when ready:
+# sync_with_syncall

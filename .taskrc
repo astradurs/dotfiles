@@ -1,0 +1,87 @@
+# Taskwarrior configuration
+# Managed via dotfiles — symlinked to ~/.taskrc by GNU Stow
+
+# ==========================================================================
+# Data
+# ==========================================================================
+data.location=~/.task
+
+# ==========================================================================
+# User Defined Attributes (UDAs)
+# ==========================================================================
+
+# Git repository path (e.g. myorg/myrepo)
+uda.repo.type=string
+uda.repo.label=Repo
+
+# Asana task ID for sync tracking
+uda.asana_gid.type=string
+uda.asana_gid.label=Asana GID
+
+# Task origin
+uda.source.type=string
+uda.source.label=Source
+uda.source.values=asana,manual,github
+
+# ==========================================================================
+# Urgency tweaks for UDAs
+# ==========================================================================
+urgency.uda.source.asana.coefficient=1.0
+urgency.uda.source.github.coefficient=0.5
+urgency.uda.repo.coefficient=0.2
+
+# ==========================================================================
+# Custom reports
+# ==========================================================================
+
+# Work — all tasks under project:work
+report.work.description=Work tasks
+report.work.columns=id,start.age,entry.age,depends,priority,project,tags,recur,scheduled.countdown,due.relative,until.remaining,description,urgency
+report.work.labels=ID,Active,Age,Deps,P,Project,Tag,Recur,S,Due,Until,Description,Urg
+report.work.sort=urgency-
+report.work.filter=project:work status:pending
+
+# Asana — all tasks with source:asana
+report.asana.description=Tasks synced from Asana
+report.asana.columns=id,start.age,entry.age,priority,project,tags,due.relative,description,asana_gid,urgency
+report.asana.labels=ID,Active,Age,P,Project,Tag,Due,Description,Asana GID,Urg
+report.asana.sort=urgency-
+report.asana.filter=source:asana status:pending
+
+# By repo — grouped by repo UDA
+report.byrepo.description=Tasks grouped by repository
+report.byrepo.columns=id,priority,project,tags,due.relative,repo,description
+report.byrepo.labels=ID,P,Project,Tag,Due,Repo,Description
+report.byrepo.sort=repo+/urgency-
+report.byrepo.filter=status:pending repo.isnt:
+
+# Inbox — tasks with no project (triage queue)
+report.inbox.description=Unassigned tasks (triage queue)
+report.inbox.columns=id,entry.age,priority,tags,due.relative,description,urgency
+report.inbox.labels=ID,Age,P,Tag,Due,Description,Urg
+report.inbox.sort=urgency-
+report.inbox.filter=status:pending project:
+
+# ==========================================================================
+# Color theme
+# ==========================================================================
+color.tagged=
+color.alternate=on gray2
+color.blocked=white on gray4
+color.blocking=bold white on gray4
+color.uda.source.asana=cyan
+color.uda.source.github=yellow
+color.project.work=bold blue
+color.project.personal=bold green
+color.project.side=bold magenta
+
+# ==========================================================================
+# Misc
+# ==========================================================================
+
+# Prompt for project on task add
+default.project=
+
+# Confirmation and verbosity
+confirmation=yes
+verbose=blank,header,footnote,label,new-id,affected,edit,special,project,sync,unwait,recur

@@ -31,6 +31,10 @@ brew "redis"
 brew "spotify_player"
 # Cross-shell prompt for astronauts
 brew "starship"
+# Command-line task management
+brew "task"
+# Terminal user interface for Taskwarrior
+brew "taskwarrior-tui"
 # Organize software neatly under a single directory tree (e.g. /usr/local)
 brew "stow"
 # Change macOS audio source from the command-line
