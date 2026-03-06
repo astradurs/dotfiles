@@ -72,7 +72,10 @@ for repo in "${REPOS[@]}"; do
     # Resolve DATE to YYYY-MM-DD for GitHub search
     if [ "$DATE" = "today" ]; then
         search_date=$(date '+%Y-%m-%d')
+    elif [ "$DATE" = "yesterday" ]; then
+        search_date=$(date -v-1d '+%Y-%m-%d')
     else
+        # Try parsing as YYYY-MM-DD, fall back to using date string as-is
         search_date=$(date -j -f '%Y-%m-%d' "$DATE" '+%Y-%m-%d' 2>/dev/null || echo "$DATE")
     fi
 
