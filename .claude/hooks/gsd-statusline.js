@@ -1,71 +1,10 @@
 #!/usr/bin/env node
-// Claude Code Statusline - Vibes Edition
-// Shows: model | repo@branch | relative dir | current task | context brain meter
+// Claude Code Statusline - GSD Edition
+// Shows: model | current task | directory | context usage
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
-
-// Git helper - runs git commands silently, returns empty string on failure
-function git(cmd, cwd) {
-  try {
-    return execSync(`git ${cmd}`, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
-  } catch { return ''; }
-}
-
-// Pick a silly model name + extract version from model id
-function sillyModel(name, id) {
-  // Extract version from id like "claude-opus-4-6" -> "4.6"
-  const version = (id || '').match(/(\d+)-(\d+)(?:-\d+)?$/);
-  const ver = version ? ` ${version[1]}.${version[2]}` : '';
-
-  const m = (name || '').toLowerCase();
-  if (m.includes('opus'))   return `🎹 Opus${ver}`;
-  if (m.includes('sonnet')) return `📝 Sonnet${ver}`;
-  if (m.includes('haiku'))  return `🍃 Haiku${ver}`;
-  return `🤖 ${name || 'Claude'}${ver}`;
-}
-
-// Pick a silly branch vibe
-function branchFlair(branch) {
-  if (!branch) return '';
-  if (branch === 'main' || branch === 'master') return '👑';
-  if (branch.startsWith('feat'))    return '✨';
-  if (branch.startsWith('fix'))     return '🔧';
-  if (branch.startsWith('hotfix'))  return '🔥';
-  if (branch.startsWith('chore'))   return '🧹';
-  if (branch.startsWith('refactor'))return '♻️';
-  if (branch.startsWith('release')) return '🚀';
-  if (branch.startsWith('wip'))     return '🚧';
-  return '🌿';
-}
-
-// Context brain - how full is the noggin?
-function contextBrain(remaining) {
-  if (remaining == null) return '';
-
-  const rem = Math.round(remaining);
-  const rawUsed = Math.max(0, Math.min(100, 100 - rem));
-  // Scale: 80% real usage = 100% displayed (Claude Code enforces 80% limit)
-  const used = Math.min(100, Math.round((rawUsed / 80) * 100));
-
-  const filled = Math.floor(used / 10);
-  const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
-
-  // Different brain states
-  if (used < 30) {
-    return ` \x1b[32m🧠 ${bar} ${used}% fresh\x1b[0m`;
-  } else if (used < 63) {
-    return ` \x1b[32m🧠 ${bar} ${used}% vibing\x1b[0m`;
-  } else if (used < 81) {
-    return ` \x1b[33m🤔 ${bar} ${used}% thinking hard\x1b[0m`;
-  } else if (used < 95) {
-    return ` \x1b[38;5;208m🥵 ${bar} ${used}% sweating\x1b[0m`;
-  } else {
-    return ` \x1b[5;31m💀 ${bar} ${used}% brain full\x1b[0m`;
-  }
-}
 
 // Read JSON from stdin
 let input = '';
@@ -75,42 +14,55 @@ process.stdin.on('end', () => {
   try {
     const data = JSON.parse(input);
     const model = data.model?.display_name || 'Claude';
-    const modelId = data.model?.id || '';
     const dir = data.workspace?.current_dir || process.cwd();
     const session = data.session_id || '';
     const remaining = data.context_window?.remaining_percentage;
-    const homeDir = os.homedir();
 
-    // Model display
-    const modelStr = `\x1b[1;35m${sillyModel(model, modelId)}\x1b[0m`;
+    // Context window display (shows USED percentage scaled to 80% limit)
+    // Claude Code enforces an 80% context limit, so we scale to show 100% at that point
+    let ctx = '';
+    if (remaining != null) {
+      const rem = Math.round(remaining);
+      const rawUsed = Math.max(0, Math.min(100, 100 - rem));
+      // Scale: 80% real usage = 100% displayed
+      const used = Math.min(100, Math.round((rawUsed / 80) * 100));
 
-    // Git info
-    const repoRoot = git('rev-parse --show-toplevel', dir);
-    const branch = git('branch --show-current', dir);
-    let repoStr = '';
-    let dirStr = '';
-
-    if (repoRoot) {
-      const repoName = path.basename(repoRoot);
-      const flair = branchFlair(branch);
-
-      repoStr = ` \x1b[36m${repoName}\x1b[0m\x1b[2m@\x1b[0m${flair}\x1b[33m${branch}\x1b[0m`;
-
-      // Relative directory from repo root
-      let relPath = dir.substring(repoRoot.length).replace(/^\//, '');
-      if (relPath) {
-        dirStr = ` \x1b[2m📂 ./${relPath}\x1b[0m`;
+      // Write context metrics to bridge file for the context-monitor PostToolUse hook.
+      // The monitor reads this file to inject agent-facing warnings when context is low.
+      if (session) {
+        try {
+          const bridgePath = path.join(os.tmpdir(), `claude-ctx-${session}.json`);
+          const bridgeData = JSON.stringify({
+            session_id: session,
+            remaining_percentage: remaining,
+            used_pct: used,
+            timestamp: Math.floor(Date.now() / 1000)
+          });
+          fs.writeFileSync(bridgePath, bridgeData);
+        } catch (e) {
+          // Silent fail -- bridge is best-effort, don't break statusline
+        }
       }
-    } else {
-      // Not in a git repo - just show directory name
-      dirStr = ` \x1b[2m📂 ${path.basename(dir)}\x1b[0m`;
-    }
 
-    // Context brain meter
-    const ctx = contextBrain(remaining);
+      // Build progress bar (10 segments)
+      const filled = Math.floor(used / 10);
+      const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+
+      // Color based on scaled usage (thresholds adjusted for new scale)
+      if (used < 63) {        // ~50% real
+        ctx = ` \x1b[32m${bar} ${used}%\x1b[0m`;
+      } else if (used < 81) { // ~65% real
+        ctx = ` \x1b[33m${bar} ${used}%\x1b[0m`;
+      } else if (used < 95) { // ~76% real
+        ctx = ` \x1b[38;5;208m${bar} ${used}%\x1b[0m`;
+      } else {
+        ctx = ` \x1b[5;31m💀 ${bar} ${used}%\x1b[0m`;
+      }
+    }
 
     // Current task from todos
     let task = '';
+    const homeDir = os.homedir();
     const todosDir = path.join(homeDir, '.claude', 'todos');
     if (session && fs.existsSync(todosDir)) {
       try {
@@ -126,7 +78,9 @@ process.stdin.on('end', () => {
             if (inProgress) task = inProgress.activeForm || '';
           } catch (e) {}
         }
-      } catch (e) {}
+      } catch (e) {
+        // Silently fail on file system errors - don't break statusline
+      }
     }
 
     // GSD update available?
@@ -141,15 +95,13 @@ process.stdin.on('end', () => {
       } catch (e) {}
     }
 
-    // Assemble the masterpiece
-    const parts = [gsdUpdate, modelStr];
-
-    if (repoStr) parts.push('│' + repoStr);
-    if (dirStr) parts.push(dirStr);
-    if (task) parts.push(`│ \x1b[1;37m⚡ ${task}\x1b[0m`);
-    if (ctx) parts.push('│' + ctx);
-
-    process.stdout.write(parts.join(' '));
+    // Output
+    const dirname = path.basename(dir);
+    if (task) {
+      process.stdout.write(`${gsdUpdate}\x1b[2m${model}\x1b[0m │ \x1b[1m${task}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
+    } else {
+      process.stdout.write(`${gsdUpdate}\x1b[2m${model}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${ctx}`);
+    }
   } catch (e) {
     // Silent fail - don't break statusline on parse errors
   }
