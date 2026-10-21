@@ -1,6 +1,19 @@
 # Global Instructions
 
-## Git / scm_breeze
-This machine uses scm_breeze, which intercepts all `git` commands and breaks heredocs, subshells, and multi-arg commands.
-**Always use `/usr/bin/git` instead of `git`** when running git commands via the Bash tool.
-This applies to all git operations: add, commit, diff, log, status, push, etc.
+## Herdr review gate
+
+Applies when running inside Herdr (`HERDR_ENV=1` is set) and the Annotate plugin is installed
+(`herdr plugin list` shows `annotate`).
+
+Use the `review-changes` skill to hand work over for line-by-line annotation. Open a review:
+
+- when asked to review changes, review the diff, or annotate something,
+- before reporting a code task complete,
+- before committing, when a commit was requested.
+
+The review does not block. Open the pane, say in a sentence or two what changed, and end the
+turn — the feedback arrives as the next user message, as numbered line-anchored items. Never
+poll the pane, and never treat silence as approval. Address every returned item before
+reporting the task complete or committing.
+
+Skip the review for turns that changed no tracked file.

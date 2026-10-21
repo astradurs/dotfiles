@@ -1,0 +1,84 @@
+# Alacritty is just the window around Herdr: Herdr draws tabs, splits, borders and the
+# sidebar, so this config stays minimal and hands Mac-style shortcuts to Herdr.
+
+[general]
+live_config_reload = true
+
+[window]
+# Herdr draws its own frame; padding here would just leave a gap around it.
+padding = { x = 0, y = 0 }
+dynamic_padding = true
+decorations = "Buttonless"
+startup_mode = "Maximized"
+# Lets alt and ctrl+alt chords reach Herdr instead of composing special characters.
+option_as_alt = "Both"
+
+[font]
+normal = { family = "JetBrainsMono Nerd Font" }
+size = 13.0
+
+[mouse]
+hide_when_typing = true
+
+# Catppuccin Mocha, matching Herdr's catppuccin theme so pane colours line up with its UI.
+[colors.primary]
+background = "#1e1e2e"
+foreground = "#cdd6f4"
+
+[colors.cursor]
+text = "#1e1e2e"
+cursor = "#f5e0dc"
+
+[colors.selection]
+text = "#1e1e2e"
+background = "#f5e0dc"
+
+[colors.normal]
+black = "#45475a"
+red = "#f38ba8"
+green = "#a6e3a1"
+yellow = "#f9e2af"
+blue = "#89b4fa"
+magenta = "#f5c2e7"
+cyan = "#94e2d5"
+white = "#bac2de"
+
+[colors.bright]
+black = "#585b70"
+red = "#f38ba8"
+green = "#a6e3a1"
+yellow = "#f9e2af"
+blue = "#89b4fa"
+magenta = "#f5c2e7"
+cyan = "#94e2d5"
+white = "#a6adc8"
+
+# Each binding types Herdr's prefix (ctrl+b, \u0002) followed by the action key, so these
+# follow Herdr's default keymap. Splits, pane focus and close carry over from the old
+# WezTerm config.
+[keyboard]
+bindings = [
+  { key = "D", mods = "Command", chars = "\u0002v" },             # split right
+  { key = "D", mods = "Command|Shift", chars = "\u0002-" },       # split down
+  { key = "Left", mods = "Command|Alt", chars = "\u0002h" },      # focus pane left
+  { key = "Down", mods = "Command|Alt", chars = "\u0002j" },      # focus pane down
+  { key = "Up", mods = "Command|Alt", chars = "\u0002k" },        # focus pane up
+  { key = "Right", mods = "Command|Alt", chars = "\u0002l" },     # focus pane right
+  { key = "W", mods = "Command", chars = "\u0002x" },             # close pane
+  { key = "Enter", mods = "Command|Shift", chars = "\u0002z" },   # zoom pane
+  { key = "T", mods = "Command", chars = "\u0002c" },             # new tab
+  { key = "R", mods = "Command|Shift", chars = "\u0002T" },       # rename tab
+  { key = "[", mods = "Command|Shift", chars = "\u0002p" },       # previous tab
+  { key = "]", mods = "Command|Shift", chars = "\u0002n" },       # next tab
+  { key = "1", mods = "Command", chars = "\u00021" },
+  { key = "2", mods = "Command", chars = "\u00022" },
+  { key = "3", mods = "Command", chars = "\u00023" },
+  { key = "4", mods = "Command", chars = "\u00024" },
+  { key = "5", mods = "Command", chars = "\u00025" },
+  { key = "6", mods = "Command", chars = "\u00026" },
+  { key = "7", mods = "Command", chars = "\u00027" },
+  { key = "8", mods = "Command", chars = "\u00028" },
+  { key = "9", mods = "Command", chars = "\u00029" },
+  { key = "K", mods = "Command", chars = "\u0002g" },             # goto picker
+  { key = "B", mods = "Command", chars = "\u0002b" },             # toggle sidebar
+]

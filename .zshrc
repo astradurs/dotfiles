@@ -160,7 +160,15 @@ git-pull() {
   return $pull_exit
 }
 alias gpl="git-pull"
-alias yolo="claude --dangerously-skip-permissions"
+# Personal commands drop an inherited CLAUDE_CONFIG_DIR (e.g. from a Herdr server started in a work shell).
+# Work aliases use `command claude` so they don't expand the `claude` alias and lose their config dir.
+alias claude="env -u CLAUDE_CONFIG_DIR claude"
+alias claude-work="CLAUDE_CONFIG_DIR=~/.claude-work command claude"
+alias yolo="env -u CLAUDE_CONFIG_DIR claude --dangerously-skip-permissions"
+alias yolo-work="CLAUDE_CONFIG_DIR=~/.claude-work command claude --dangerously-skip-permissions"
+# Herdr sessions per context; profiles in ~/.config/herdr/profiles. Add --seed to reopen missing defaults.
+alias hw="herdr-up work"
+alias hh="herdr-up home"
 
 . "$HOME/.local/bin/env"
 ###-begin-npm-completion-###

@@ -1,0 +1,72 @@
+#!/bin/zsh
+# Attach to the named Herdr session for a profile, starting and seeding it when needed.
+#
+#   herdr-up <profile>          attach; start the server first if it isn't running
+#   herdr-up <profile> --seed   also add any default workspaces that aren't open
+#
+# Profiles live in ~/.config/herdr/profiles/<profile>.zsh (tracked), and
+# ~/.config/herdr/profiles.local/<profile>.zsh (untracked) is sourced after it to add
+# machine-specific values such as PROFILE_DIRS. Either one alone is enough. A session that
+# already has workspaces is left as it was last saved; only an empty session is seeded
+# automatically.
+emulate -L zsh
+setopt err_exit pipe_fail extended_glob
+
+usage() { print -u2 "usage: herdr-up <profile> [--seed]"; exit 2 }
+(( $# >= 1 )) || usage
+profile=$1
+seed=0
+[[ ${2:-} == --seed ]] && seed=1
+[[ -n ${2:-} && $seed == 0 ]] && usage
+
+profile_files=(~/.config/herdr/{profiles,profiles.local}/$profile.zsh(N-.r))
+(( $#profile_files )) || { print -u2 "herdr-up: no profile '$profile' in ~/.config/herdr/profiles{,.local}"; exit 1 }
+PROFILE_SET=() PROFILE_UNSET=() PROFILE_AGENT= PROFILE_DIRS=()
+for profile_file in $profile_files; do source $profile_file; done
+
+# Pane variables pin the CLI to the session this shell runs in; drop them so commands reach $profile.
+unset HERDR_SOCKET_PATH HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID
+export HERDR_SESSION=$profile
+for name in $PROFILE_UNSET; do unset $name; done
+for assignment in $PROFILE_SET; do export $assignment; done
+
+running=$(herdr session list --json | jq -r --arg n $profile '.sessions[] | select(.name == $n) | .running')
+if [[ $running != true ]]; then
+  # Start the server here rather than via attach, so panes inherit the profile's environment
+  # instead of whatever shell happens to attach first.
+  (cd ~ && env -u HERDR_ENV nohup herdr server >/dev/null 2>&1 &)
+  for attempt in {1..50}; do
+    herdr workspace list >/dev/null 2>&1 && break
+    (( attempt == 50 )) && { print -u2 "herdr-up: server for $profile did not come up"; exit 1 }
+    sleep 0.2
+  done
+fi
+
+open_labels=(${(f)"$(herdr workspace list | jq -r '.result.workspaces[].label')"})
+[[ -z ${open_labels[*]} ]] && seed=1
+
+if (( seed )); then
+  first=
+  for dir in $PROFILE_DIRS; do
+    label=${dir:t}
+    (( ${open_labels[(Ie)$label]} )) && continue
+    [[ -d $dir ]] || { print -u2 "herdr-up: skipping missing $dir"; continue }
+
+    created=$(herdr workspace create --cwd $dir --label $label --no-focus)
+    workspace=$(jq -r .result.workspace.workspace_id <<<$created)
+    pane=$(jq -r .result.root_pane.pane_id <<<$created)
+    herdr tab rename $(jq -r .result.tab.tab_id <<<$created) agent >/dev/null
+    herdr pane split $pane --direction right --cwd $dir --no-focus >/dev/null
+    [[ -n $PROFILE_AGENT ]] && herdr pane run $pane $PROFILE_AGENT >/dev/null
+    herdr tab create --workspace $workspace --cwd $dir --label shell --no-focus >/dev/null
+    : ${first:=$workspace}
+    print "herdr-up: opened $label"
+  done
+  [[ -n $first ]] && herdr workspace focus $first >/dev/null
+fi
+
+if [[ ${HERDR_ENV:-} == 1 ]]; then
+  print "herdr-up: inside Herdr already; detach (ctrl+b q) and run 'herdr-up $profile' to attach."
+  exit 0
+fi
+exec herdr --session $profile
