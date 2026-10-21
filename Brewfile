@@ -7,6 +7,8 @@ tap "supabase/tap"
 brew "awscli"
 # Emacs dependency management
 brew "cask"
+# Load/unload environment variables based on $PWD
+brew "direnv"
 # Fast and simple Node.js version manager
 brew "fnm"
 # Command-line fuzzy finder written in Go
@@ -17,6 +19,8 @@ brew "gh"
 brew "glow"
 # Distributed revision control system
 brew "git"
+# Agent multiplexer that lives in your terminal
+brew "herdr"
 # Manage your Java environment
 brew "jenv"
 # NCurses Disk Usage
