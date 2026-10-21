@@ -48,3 +48,17 @@ Brewfile.lock.json
 
 # Planning docs (local only)
 .planning/
+
+# bin/ is an allowlist. ~/bin must stay a real directory so stow links each
+# script individually; if it is ever deleted, stow re-folds ~/bin into a single
+# symlink to this dir and anything writing to ~/bin (CrossOver game shortcuts,
+# installers) lands in the repo. These rules keep that out of git.
+# Adding a new script? Add a matching ! line or it will be silently untracked.
+bin/*
+!bin/asana-agenda
+!bin/daily-report
+!bin/dotfiles-bootstrap
+!bin/herdr-up
+!bin/node-kill
+!bin/node-ps
+!bin/task-sync-asana

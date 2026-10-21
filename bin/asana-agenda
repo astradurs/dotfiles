@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""asana-agenda — List my assigned, incomplete Asana tasks, grouped by due date.
+
+Reads token from ~/.config/asana/token. Prints to stdout.
+"""
+
+import json
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+TOKEN_PATH = Path.home() / ".config" / "asana" / "token"
+API = "https://app.asana.com/api/1.0"
+
+
+def load_token() -> str:
+    if not TOKEN_PATH.exists():
+        sys.exit(f"Token file not found: {TOKEN_PATH}")
+    token = TOKEN_PATH.read_text().strip()
+    if not token:
+        sys.exit(f"Token file is empty: {TOKEN_PATH}")
+    return token
+
+
+def api_get(token: str, path: str, params: dict | None = None) -> dict:
+    url = f"{API}{path}"
+    if params:
+        url += "?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(req) as r:
+        return json.loads(r.read())
+
+
+def fetch_workspaces(token: str) -> list[dict]:
+    return api_get(token, "/users/me")["data"]["workspaces"]
+
+
+def fetch_assigned_tasks(token: str, workspace_gid: str) -> list[dict]:
+    params = {
+        "assignee": "me",
+        "workspace": workspace_gid,
+        "completed_since": "now",
+        "opt_fields": "name,due_on,due_at,projects.name,permalink_url,created_at,modified_at",
+        "limit": 100,
+    }
+    tasks: list[dict] = []
+    while True:
+        data = api_get(token, "/tasks", params)
+        tasks.extend(data["data"])
+        nxt = data.get("next_page")
+        if not nxt:
+            break
+        params = {**params, "offset": nxt["offset"]}
+    return tasks
+
+
+def bucket_for(task: dict, today: date) -> str:
+    due = task.get("due_on")
+    if not due:
+        return "no_due"
+    try:
+        d = date.fromisoformat(due)
+    except ValueError:
+        return "no_due"
+    if d < today:
+        return "overdue"
+    if d == today:
+        return "today"
+    if d <= today + timedelta(days=7):
+        return "week"
+    return "later"
+
+
+def age_days(task: dict, today: date) -> int | None:
+    created = task.get("created_at")
+    if not created:
+        return None
+    try:
+        c = datetime.fromisoformat(created.replace("Z", "+00:00")).astimezone(timezone.utc).date()
+        return (today - c).days
+    except ValueError:
+        return None
+
+
+def format_task(task: dict, today: date) -> str:
+    name = task.get("name", "(no title)") or "(no title)"
+    due = task.get("due_on") or "--"
+    projects = [p.get("name", "?") for p in (task.get("projects") or [])]
+    proj = ", ".join(projects) if projects else "(no project)"
+    age = age_days(task, today)
+    age_str = f"{age}d old" if age is not None else ""
+    url = task.get("permalink_url", "")
+    gid = task.get("gid", "")
+    meta = " | ".join(s for s in [proj, age_str, f"gid:{gid}"] if s)
+    return f"  - [{due}] {name}\n      {meta}\n      {url}"
+
+
+BUCKETS = [
+    ("overdue", "OVERDUE"),
+    ("today",   "TODAY"),
+    ("week",    "THIS WEEK"),
+    ("later",   "LATER"),
+    ("no_due",  "NO DUE DATE"),
+]
+
+
+def main() -> int:
+    token = load_token()
+    workspaces = fetch_workspaces(token)
+    today = date.today()
+    grand_total = 0
+
+    for ws in workspaces:
+        print(f"\n=== Workspace: {ws['name']} ({ws['gid']}) ===")
+        tasks = fetch_assigned_tasks(token, ws["gid"])
+        if not tasks:
+            print("  (no assigned, incomplete tasks)")
+            continue
+
+        buckets: dict[str, list[dict]] = {k: [] for k, _ in BUCKETS}
+        for t in tasks:
+            buckets[bucket_for(t, today)].append(t)
+
+        def sort_key(t: dict):
+            return (t.get("due_on") or "9999-12-31", t.get("created_at") or "")
+
+        for key, label in BUCKETS:
+            items = sorted(buckets[key], key=sort_key)
+            if not items:
+                continue
+            print(f"\n[{label}]  ({len(items)})")
+            for t in items:
+                print(format_task(t, today))
+
+        print(f"\n  Total in {ws['name']}: {len(tasks)} task(s)")
+        grand_total += len(tasks)
+
+    print(f"\nGrand total across workspaces: {grand_total} task(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        sys.exit(f"HTTP error: {e.code} {e.reason}\n{body}")
+    except KeyboardInterrupt:
+        sys.exit(130)
