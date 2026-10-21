@@ -151,8 +151,8 @@ git-pull() {
       changed_files=$(command git diff --name-only "$old_head" "$new_head")
       if echo "$changed_files" | command grep -qE '(^|/)package(-lock)?\.json$'; then
         echo ""
-        echo "\033[1;33m📦 package.json or package-lock.json changed — running npm install...\033[0m"
-        npm install
+        echo "\033[1;33m📦 package.json or package-lock.json changed — running sfw npm install...\033[0m"
+        sfw npm install
       fi
     fi
   fi
@@ -169,6 +169,8 @@ alias yolo-work="CLAUDE_CONFIG_DIR=~/.claude-work command claude --dangerously-s
 # Herdr sessions per context; profiles in ~/.config/herdr/profiles. Add --seed to reopen missing defaults.
 alias hw="herdr-up work"
 alias hh="herdr-up home"
+alias bup="brew update"
+alias bupg="brew upgrade"
 
 . "$HOME/.local/bin/env"
 ###-begin-npm-completion-###
@@ -240,3 +242,13 @@ elif type compctl &>/dev/null; then
   compctl -K _npm_completion npm
 fi
 ###-end-npm-completion-###
+
+# pnpm
+export PNPM_HOME="$HOME/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+eval "$(direnv hook zsh)"
