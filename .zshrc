@@ -76,10 +76,8 @@ source $ZSH/oh-my-zsh.sh
 
 # User configuration
 
-# Asana config for ~/bin/task-sync-asana
-# ASANA_PAT is loaded from ~/.secrets (not tracked in dotfiles)
+# Tokens and API keys (e.g. ASANA_PAT for ~/bin/task-sync-asana). Not tracked; see docs/local-overrides.md.
 [[ -f ~/.secrets ]] && source ~/.secrets
-export ASANA_WORKSPACE_GID="1234567890"
 
 # Source shared profile (aliases, etc.)
 [[ -f ~/.profile ]] && source ~/.profile
@@ -252,3 +250,7 @@ esac
 # pnpm end
 
 eval "$(direnv hook zsh)"
+
+# Machine-local zsh config, sourced last so it can override anything above.
+# Not tracked; see docs/local-overrides.md.
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local

@@ -1,5 +1,9 @@
-# Ignore local configuration files
-.gitconfig.local
+# Machine-local drop-ins (live outside the repo; ignored here in case one is created by mistake).
+# See docs/local-overrides.md.
+*.local
+.config/herdr/profiles.local/
+.config/daily-report/
+.secrets
 
 # Ignore sensitive data
 .ssh/

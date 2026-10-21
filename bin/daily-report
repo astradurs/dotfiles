@@ -4,14 +4,60 @@
 # Uses Claude to create a lively, emoji-rich summary for sharing with the team
 
 REPOS_DIR="${WORK_REPOS_DIR:-$HOME/Documents/Work/Repos}"
-read -ra REPOS <<< "${WORK_REPOS:-backend web-app admin dashboard}"
-AUTHOR="${WORK_GIT_AUTHOR:-me@work.example}"
+# Repo names, one per line ('#' comments allowed). Kept out of git; see docs/local-overrides.md.
+REPOS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/daily-report/repos"
+AUTHOR="${WORK_GIT_AUTHOR:-$(/usr/bin/git config user.email)}"
 DATE="${1:-today}"
+
+REPOS=()
+if [ -f "$REPOS_FILE" ]; then
+    while IFS= read -r line; do
+        line="${line%%#*}"
+        line="${line//[[:space:]]/}"
+        [ -n "$line" ] && REPOS+=("$line")
+    done < "$REPOS_FILE"
+else
+    # No list: scan every git repo directly under REPOS_DIR or one level down.
+    # Names are deduped since resolve_repo only ever finds the first match anyway.
+    for candidate in "$REPOS_DIR"/*/.git "$REPOS_DIR"/*/*/.git; do
+        [ -d "$candidate" ] || continue
+        name=$(basename "$(dirname "$candidate")")
+        case " ${REPOS[*]} " in *" $name "*) continue ;; esac
+        REPOS+=("$name")
+    done
+fi
+
+if [ ${#REPOS[@]} -eq 0 ]; then
+    echo "No repos to scan: create $REPOS_FILE or check WORK_REPOS_DIR ($REPOS_DIR)."
+    exit 1
+fi
+if [ -z "$AUTHOR" ]; then
+    echo "No author: set WORK_GIT_AUTHOR or git config user.email."
+    exit 1
+fi
+
+# Resolve a repo name to its path. Looks directly under REPOS_DIR first, then
+# one level deeper (e.g. Repos/live/web-app, Repos/not-live/broke).
+resolve_repo() {
+    local name="$1" candidate
+    if [ -d "$REPOS_DIR/$name/.git" ]; then
+        echo "$REPOS_DIR/$name"
+        return 0
+    fi
+    for candidate in "$REPOS_DIR"/*/"$name"; do
+        if [ -d "$candidate/.git" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
 
 echo "=== Daily Report Generator ==="
 echo "Date: $DATE"
 echo "Author: $AUTHOR"
 echo "Repos dir: $REPOS_DIR"
+echo "Repos file: $([ -f "$REPOS_FILE" ] && echo "$REPOS_FILE" || echo "none, auto-discovered")"
 echo "Scanning repos: ${REPOS[*]}"
 echo "Search: --all --shortstat"
 echo ""
@@ -19,8 +65,7 @@ echo ""
 commits=""
 
 for repo in "${REPOS[@]}"; do
-    repo_path="$REPOS_DIR/$repo"
-    if [ ! -d "$repo_path/.git" ]; then
+    if ! repo_path=$(resolve_repo "$repo"); then
         echo "  [$repo] skipped (not found)"
         continue
     fi
@@ -58,8 +103,7 @@ echo ""
 prs=""
 echo "Scanning for merged PRs..."
 for repo in "${REPOS[@]}"; do
-    repo_path="$REPOS_DIR/$repo"
-    if [ ! -d "$repo_path/.git" ]; then
+    if ! repo_path=$(resolve_repo "$repo"); then
         continue
     fi
 

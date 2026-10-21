@@ -44,6 +44,9 @@ This repository contains configuration files for:
    EOF
    ```
 
+   Personal, work-specific and secret settings all go in local drop-in files like this one.
+   See [Local overrides](docs/local-overrides.md) for the full list.
+
 3. **Backup existing dotfiles (important!):**
    ```bash
    # Back up any existing config files you want to keep
@@ -111,6 +114,7 @@ git push
 2. Install GNU Stow
 3. Set up `.gitconfig.local` with your personal info
 4. Run `stow .` from the dotfiles directory
+5. Add whichever [local drop-ins](docs/local-overrides.md) the machine needs (`~/.secrets`, `~/.profile.local`, ...)
 
 ### Removing Dotfiles
 
@@ -142,10 +146,18 @@ This repository uses a split Git configuration:
 
 Always set up `.gitconfig.local` on new machines with your personal information.
 
+### Local Overrides
+
+This repo is public. Anything personal, work-specific or secret lives in untracked drop-in
+files that the tracked config loads if they exist: `~/.profile.local`, `~/.zshrc.local`,
+`~/.bashrc.local`, `~/.secrets`, `~/.gitconfig.local`, `~/.config/daily-report/repos` and
+`~/.config/herdr/profiles.local/`. See [docs/local-overrides.md](docs/local-overrides.md) for
+what goes where, the load order, and examples.
+
 ### Sensitive Files
 
 The `.gitignore` is configured to exclude:
-- `.gitconfig.local`
+- `*.local` drop-ins and `.secrets` (see [Local overrides](docs/local-overrides.md))
 - SSH keys
 - Shell history files
 - Credentials and secrets

@@ -82,3 +82,6 @@ elif type compctl &>/dev/null; then
   compctl -K _npm_completion npm
 fi
 ###-end-npm-completion-###
+
+# Machine-local bash config. Not tracked; see docs/local-overrides.md.
+[[ -f ~/.bashrc.local ]] && source ~/.bashrc.local
