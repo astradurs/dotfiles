@@ -9,7 +9,7 @@ This repository contains configuration files for:
 - **Shell**: `.zshrc`, `.bashrc`, `.profile`
 - **Vim**: `.vimrc`
 - **Git**: `.gitconfig` (with separate local config for personal info)
-- **WezTerm**: Terminal emulator configuration
+- **Alacritty**: Terminal emulator configuration (window around Herdr)
 - **Fish**: Fish shell configuration
 - **Atuin**: Shell history sync
 - **GitHub CLI**: `gh` configuration
@@ -126,7 +126,7 @@ GNU Stow creates symlinks from the parent directory to the files in the stow dir
 
 1. Looks at the directory structure in `~/dotfiles`
 2. Creates symlinks in the parent directory (`~`) for each file
-3. Preserves the directory structure (e.g., `.config/wezterm/` → `~/.config/wezterm/`)
+3. Preserves the directory structure (e.g., `.config/alacritty/` → `~/.config/alacritty/`)
 
 This means:
 - `~/dotfiles/.zshrc` → symlinked as `~/.zshrc`

@@ -82,8 +82,8 @@ cask "imageoptim"
 cask "nosql-workbench"
 # Emoji picker optimised for blind people
 cask "rocket"
-# GPU-accelerated cross-platform terminal emulator and multiplexer
-cask "wezterm@nightly"
+# GPU-accelerated terminal emulator
+cask "alacritty"
 vscode "aaron-bond.better-comments"
 vscode "adelphes.android-dev-ext"
 vscode "anthropic.claude-code"
