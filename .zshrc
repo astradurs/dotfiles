@@ -117,9 +117,8 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 export PATH="$HOME/.codeium/windsurf/bin:$PATH"
 
 PATH=~/.console-ninja/.bin:$PATH
-. "$HOME/.atuin/bin/env"
 
-eval "$(atuin init zsh)"
+command -v atuin >/dev/null && eval "$(atuin init zsh)"
 
 # fnm eval
 eval "$(fnm env --use-on-cd --shell zsh)"

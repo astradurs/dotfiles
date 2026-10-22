@@ -3,6 +3,8 @@ tap "heroku/brew"
 tap "homebrew/services"
 tap "microsoft/git"
 tap "supabase/tap"
+# Improved shell history for zsh, bash, fish and nushell
+brew "atuin"
 # Official Amazon AWS command-line interface
 brew "awscli"
 # Emacs dependency management

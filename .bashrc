@@ -3,9 +3,7 @@
 [[ -f ~/.profile ]] && source ~/.profile
 
 [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
-eval "$(atuin init bash)"
-
-. "$HOME/.atuin/bin/env"
+command -v atuin >/dev/null && eval "$(atuin init bash)"
 
 [[ $- == *i* ]] && [ -s "$HOME/.scm_breeze/scm_breeze.sh" ] && source "$HOME/.scm_breeze/scm_breeze.sh"
 
