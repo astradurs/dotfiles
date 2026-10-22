@@ -10,12 +10,19 @@ zero=0000000000000000000000000000000000000000
 status=0
 while read -r local_ref local_sha remote_ref remote_sha; do
     [ "$local_sha" = "$zero" ] && continue # deleting a remote branch
-    if [ "$remote_sha" = "$zero" ]; then
-        range="$local_sha --not --remotes" # new branch: only commits no remote has yet
+    # New branch, or a force-push whose old remote tip isn't here (e.g. after a history rewrite):
+    # check only commits no remote has yet.
+    if [ "$remote_sha" = "$zero" ] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+        range="$local_sha --not --remotes"
     else
         range="$remote_sha..$local_sha"
     fi
-    [ -z "$(git rev-list $range)" ] && continue
+    if ! commits=$(git rev-list $range); then
+        fail "could not list the commits being pushed to $remote_ref; refusing to skip the checks"
+        status=1
+        continue
+    fi
+    [ -z "$commits" ] && continue
 
     echo "Checking commits for $remote_ref..." >&2
     if gitleaks git --log-opts="$range" --redact --verbose --no-banner --log-level warn .; then
