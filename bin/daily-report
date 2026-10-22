@@ -37,7 +37,7 @@ if [ -z "$AUTHOR" ]; then
 fi
 
 # Resolve a repo name to its path. Looks directly under REPOS_DIR first, then
-# one level deeper (e.g. Repos/live/web-app, Repos/not-live/broke).
+# one level deeper (e.g. Repos/live/web-app, Repos/archived/old-app).
 resolve_repo() {
     local name="$1" candidate
     if [ -d "$REPOS_DIR/$name/.git" ]; then
