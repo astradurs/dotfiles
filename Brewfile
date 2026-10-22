@@ -21,6 +21,8 @@ brew "gh"
 brew "glow"
 # Distributed revision control system
 brew "git"
+# Audit git repos for secrets
+brew "gitleaks"
 # Agent multiplexer that lives in your terminal
 brew "herdr"
 # Manage your Java environment

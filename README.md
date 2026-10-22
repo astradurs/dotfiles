@@ -115,6 +115,7 @@ git push
 3. Set up `.gitconfig.local` with your personal info
 4. Run `stow .` from the dotfiles directory
 5. Add whichever [local drop-ins](docs/local-overrides.md) the machine needs (`~/.secrets`, `~/.profile.local`, ...)
+6. Enable the [guardrails](docs/guardrails.md): `git config core.hooksPath .githooks`
 
 ### Removing Dotfiles
 
@@ -153,6 +154,14 @@ files that the tracked config loads if they exist: `~/.profile.local`, `~/.zshrc
 `~/.bashrc.local`, `~/.secrets`, `~/.gitconfig.local`, `~/.config/daily-report/repos` and
 `~/.config/herdr/profiles.local/`. See [docs/local-overrides.md](docs/local-overrides.md) for
 what goes where, the load order, and examples.
+
+### Guardrails
+
+Git hooks in `.githooks/` scan every commit and push for secrets (gitleaks), email addresses
+and personal strings from a local blocklist, and ask for your OK at the terminal before any
+new file is committed. Enable them on each clone with
+`git config core.hooksPath .githooks` (`bin/dotfiles-bootstrap` does this). See
+[docs/guardrails.md](docs/guardrails.md).
 
 ### Sensitive Files
 

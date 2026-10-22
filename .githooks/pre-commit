@@ -1,0 +1,48 @@
+#!/bin/bash
+# Guardrails for this public repo; see docs/guardrails.md.
+#   1. secrets in staged changes (gitleaks)
+#   2. personal data in added lines: email addresses and the local blocklist
+#   3. new files need a "y" typed at a terminal, so agents and GUIs can't add them on their own
+# Edits to already-tracked files only go through checks 1 and 2.
+
+. "$(git rev-parse --show-toplevel)/.githooks/lib.sh"
+status=0
+
+if require_gitleaks; then
+    if gitleaks git --pre-commit --staged --redact --verbose --no-banner --log-level warn .; then
+        ok "no secrets (gitleaks)"
+    else
+        fail "gitleaks found secrets in the staged changes (see above)"
+        status=1
+    fi
+else
+    status=1
+fi
+
+git diff --cached -U0 --no-color | scan_personal || status=1
+
+if [ $status -ne 0 ]; then
+    echo "Commit blocked. Fix the findings, or for a false positive add 'gitleaks:allow' to the line." >&2
+    exit 1
+fi
+
+new_files=$(git diff --cached --name-only --diff-filter=ACR)
+[ -z "$new_files" ] && exit 0
+
+count=$(printf '%s\n' "$new_files" | wc -l | tr -d ' ')
+echo "New files in this commit:" >&2
+printf '%s\n' "$new_files" | sed 's/^/  /' >&2
+
+# Hooks get no stdin, so ask on the controlling terminal. Without one (an agent, a GUI client)
+# there is nobody to ask, and the answer is no.
+if ! { exec 3</dev/tty; } 2>/dev/null; then
+    fail "$count new file(s) need your approval: run this commit yourself in a terminal."
+    exit 1
+fi
+printf 'Commit these %s new file(s)? [y/N] ' "$count" >/dev/tty
+read -r answer <&3
+exec 3<&-
+case "$answer" in
+    [yY] | [yY][eE][sS]) ok "new files approved" ;;
+    *) fail "new files not approved; unstage them with: git restore --staged <file>"; exit 1 ;;
+esac

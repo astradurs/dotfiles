@@ -18,6 +18,7 @@ you need.
 | `~/.gitconfig.local` | `[include]` in `.gitconfig` | git `user.name` / `user.email`, credential helpers, per-machine git settings |
 | `~/.config/daily-report/repos` | `bin/daily-report` | which repos the daily report scans |
 | `~/.config/herdr/profiles.local/<name>.zsh` | `bin/herdr-up`, after `profiles/<name>.zsh` | the workspaces a Herdr profile opens, or a whole machine-only profile |
+| `~/.config/dotfiles/blocklist` | `.githooks/` (pre-commit, pre-push) | personal strings that must never be committed; see [guardrails](guardrails.md) |
 
 Load order for an interactive zsh: `~/.secrets` → `~/.profile` → `~/.profile.local` → rest of
 `.zshrc` → `~/.zshrc.local`. Later files win.
@@ -104,6 +105,7 @@ After `stow .`:
 1. `~/.gitconfig.local` with your name and email (see the README).
 2. `install -m 600 /dev/null ~/.secrets` and add your tokens.
 3. Any of the other drop-ins above that this machine needs.
+4. `~/.config/dotfiles/blocklist` with the personal strings to keep out of the repo.
 
 ## Adding a new hook
 
@@ -115,3 +117,5 @@ When a tracked file needs a machine-specific value:
 2. Give the tracked file a sensible default, or a clear error if the value is required.
 3. Add the file to the table above, with an example.
 4. If it could ever end up inside the repo, add it to `.gitignore`.
+5. If the value identifies you (an employer, a project, an ID), add it to
+   `~/.config/dotfiles/blocklist` so the [guardrails](guardrails.md) catch it if it ever leaks back in.

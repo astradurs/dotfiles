@@ -152,6 +152,23 @@ EOF
 }
 
 # --------------------------------------------------------------------------
+# 5b. Repo guardrails (pre-commit / pre-push hooks)
+# --------------------------------------------------------------------------
+setup_guardrails() {
+    info "Enabling repo guardrails"
+
+    if [[ "$(git -C "$DOTFILES_DIR" config --get core.hooksPath)" == ".githooks" ]]; then
+        skip "Hooks already enabled"
+        SKIPPED+=("Repo guardrails")
+        return
+    fi
+
+    git -C "$DOTFILES_DIR" config core.hooksPath .githooks
+    ok "Hooks enabled (see docs/guardrails.md)"
+    INSTALLED+=("Repo guardrails")
+}
+
+# --------------------------------------------------------------------------
 # 6. Taskwarrior
 # --------------------------------------------------------------------------
 setup_taskwarrior() {
@@ -234,6 +251,7 @@ setup_brew_bundle
 setup_omz
 setup_default_shell
 setup_git_config
+setup_guardrails
 setup_taskwarrior
 setup_stow
 print_summary

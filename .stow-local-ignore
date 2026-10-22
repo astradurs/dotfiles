@@ -1,0 +1,22 @@
+# Files stow must not link into ~. This file replaces stow's built-in ignore list, so the
+# defaults are repeated here (from Stow.pm, stow 2.4).
+RCS
+.+,v
+CVS
+\.\#.+
+\.cvsignore
+\.svn
+_darcs
+\.hg
+\.git
+\.gitignore
+\.gitmodules
+.+~
+\#.*\#
+^/README.*
+^/LICENSE.*
+^/COPYING
+
+# Repo-only files
+^/\.stow-local-ignore
+^/\.githooks
