@@ -168,6 +168,30 @@ alias hw="herdr-up work"
 alias hh="herdr-up home"
 alias bup="brew update"
 alias bupg="brew upgrade"
+# Open .scratch issues (ai-hero layout) in the current directory; -a includes closed ones.
+# Projects are numbered, scm_breeze style: `issue <p>` opens the spec, `issue <p> <i>` issue <i>,
+# `issue next` the first unblocked ready-for-agent issue; add -e to open in $EDITOR.
+alias issues="scratch-issues"
+alias issue="scratch-issues"
+# Completes project numbers, then that project's issue numbers, from the last listing.
+_scratch-issues() {
+  local -a args=(${words[2,CURRENT-1]:#-*}) items
+  if [[ $PREFIX == -* ]]; then
+    items=('-a:include closed issues' '-e:open in $EDITOR instead of glow')
+    _describe -t options option items
+  elif (( $#args == 0 )); then
+    items=(${(f)"$(scratch-issues --complete)"} 'next:first unblocked ready-for-agent issue')
+    _describe -V -t projects project items
+  elif [[ $args[1] == next ]]; then
+    (( $#args == 1 )) || return
+    items=(${(f)"$(scratch-issues --complete)"})
+    _describe -V -t projects project items
+  elif (( $#args == 1 )); then
+    items=(${(f)"$(scratch-issues --complete $args[1])"})
+    _describe -V -t issues issue items
+  fi
+}
+compdef _scratch-issues scratch-issues
 
 . "$HOME/.local/bin/env"
 ###-begin-npm-completion-###

@@ -1,0 +1,188 @@
+#!/bin/zsh
+# List the open issues in ./.scratch, grouped by project, with their status.
+#
+#   scratch-issues            open issues only
+#   scratch-issues -a         include closed ones (done, resolved, wontfix, closed)
+#   scratch-issues <p>        open the spec of project [p] from the last listing in glow
+#   scratch-issues <p> <i>    open issue <i> (its file number, e.g. 3 for 03-*.md) of project [p]
+#   scratch-issues next [<p>] open the first unblocked ready-for-agent issue, in ./.scratch or
+#                             in project [p]
+#
+# Add -e to any form that opens a file to open it in $VISUAL / $EDITOR instead of glow.
+#
+# Like scm_breeze, each project gets a [p] that stays valid until the next listing, from any
+# directory: the listing saves the numbered project paths to $index. `--complete [<p>]` prints
+# completion candidates for the zsh completion in .zshrc.
+#
+# Expects the ai-hero layout: .scratch/<project>/{spec.md,issues/<NN>-<name>.md}, where each
+# issue has a "Status: <status>" line and optionally a "Blocked by: <ids>" line.
+emulate -L zsh
+setopt extended_glob
+
+index=${XDG_CACHE_HOME:-$HOME/.cache}/scratch-issues
+closed=(done resolved wontfix closed)
+usage="usage: scratch-issues [-a] | [-e] (<p> [<i>] | next [<p>])"
+
+# Value of the first "<Key>: value" or "**<Key>:** value" line in a file, or empty.
+field() { grep -m1 -iE "^(\*\*)?$1:" $2 | sed -E 's/^[^:]*:(\*\*)?[[:space:]]*//' }
+
+# Read every issue of project dir $1 into parallel arrays: issue_files, issue_status (as written),
+# issue_key ("needs-info — waiting on X" → "needs-info"), issue_title, and issue_blockers (the
+# "Blocked by" issues that are still open, ", "-joined).
+scan() {
+  issue_files=($1/issues/*.md(N))
+  issue_status=() issue_key=() issue_title=() issue_blockers=()
+  local issue s name num title blocked_by blocker
+  local -a open
+  local -A key_by_num
+  for issue in $issue_files; do
+    s=${$(field Status $issue):-unknown}
+    issue_status+=("$s")
+    issue_key+=("${${s:l}%%[^a-z-]*}")
+    key_by_num[$(( 10#${${issue:t}%%-*} ))]=$issue_key[-1]
+  done
+  for issue in $issue_files; do
+    name=${issue:t:r}
+    num=${name%%-*}
+    title=$(sed -n '1s/^#[[:space:]]*//p' $issue)
+    # Drop the "05 — " prefix the heading repeats from the filename.
+    issue_title+=("${${title:-${name#*-}}##${num}[[:space:]]#[—–:-]#[[:space:]]#}")
+    blocked_by=$(field 'Blocked by' $issue)
+    open=()
+    for blocker in ${(M)${(s:,:)${blocked_by//[^0-9]/,}}:#[0-9]##}; do
+      (( ${closed[(Ie)${key_by_num[$(( 10#$blocker ))]}]} )) || open+=$blocker
+    done
+    issue_blockers+=("${(j:, :)open}")
+  done
+}
+
+# Project dir [$1] of the last listing.
+project_at() {
+  [[ -f $index ]] || { print -u2 "no listing yet; run scratch-issues first"; exit 1 }
+  local -a projects=(${(f)"$(<$index)"})
+  project=${projects[$1]}
+  [[ -n $project ]] || { print -u2 "no project [$1] in the last listing ($#projects projects)"; exit 1 }
+  [[ -d $project ]] || { print -u2 "$project no longer exists"; exit 1 }
+}
+
+open_file() {
+  if (( edit )); then exec ${=${VISUAL:-${EDITOR:-vim}}} ${1:a}
+  elif (( $+commands[glow] )); then exec glow -p ${1:a}
+  else exec ${PAGER:-less} ${1:a}
+  fi
+}
+
+if [[ ${1:-} == --complete ]]; then
+  if [[ ${2:-} == <1-> ]]; then
+    project_at $2 2>/dev/null
+    scan $project
+    for (( i = 1; i <= $#issue_files; i++ )); do
+      print -r -- "$(( 10#${${issue_files[i]:t}%%-*} )):$issue_title[i] [$issue_key[i]]"
+    done
+  elif [[ -f $index ]]; then
+    i=0
+    for project in ${(f)"$(<$index)"}; do print -r -- "$(( ++i )):${project:t}"; done
+  fi
+  exit 0
+fi
+
+show_all=0 edit=0 args=()
+for arg; do
+  case $arg in
+    -a|--all) show_all=1 ;;
+    -e|--edit) edit=1 ;;
+    -*) print -u2 $usage; exit 2 ;;
+    *) args+=$arg ;;
+  esac
+done
+
+if [[ ${args[1]:-} == next ]]; then
+  if (( $#args == 2 )) && [[ $args[2] == <1-> ]]; then
+    project_at $args[2]
+    candidates=($project)
+  elif (( $#args == 1 )); then
+    [[ -d .scratch ]] || { print -u2 "no .scratch directory here; use: scratch-issues next <p>"; exit 1 }
+    candidates=(.scratch/*(N/))
+  else
+    print -u2 $usage; exit 2
+  fi
+  for project in $candidates; do
+    scan $project
+    for (( i = 1; i <= $#issue_files; i++ )); do
+      [[ $issue_key[i] == ready-for-agent && -z $issue_blockers[i] ]] || continue
+      print -r -- "${project:t} ${issue_files[i]:t:r}: $issue_title[i]"
+      open_file $issue_files[i]
+    done
+  done
+  print -u2 "no unblocked ready-for-agent issue"
+  exit 1
+fi
+
+if (( $#args )); then
+  [[ $#args -le 2 && $args[1] == <1-> && ${args[2]:-1} == <1-> ]] || { print -u2 $usage; exit 2 }
+  project_at $args[1]
+  if (( $#args == 2 )); then
+    # Any zero-padding: 3, 03 and 003 all open 03-*.md.
+    matches=($project/issues/(0#)$(( 10#$args[2] ))-*.md(N))
+    (( $#matches )) || { print -u2 "no issue $args[2] in ${project:t}"; exit 1 }
+    open_file $matches[1]
+  fi
+  [[ -f $project/spec.md ]] || { print -u2 "${project:t} has no spec.md; open an issue with: scratch-issues $args[1] <i>"; exit 1 }
+  open_file $project/spec.md
+fi
+
+[[ -d .scratch ]] || { print "no .scratch directory available"; exit 0 }
+
+if [[ -t 1 ]]; then
+  bold=$'\e[1m' dim=$'\e[2m' reset=$'\e[0m'
+  typeset -A colour=(
+    ready-for-agent $'\e[32m' ready-for-human $'\e[33m' needs-info $'\e[35m'
+    needs-triage $'\e[36m' in-progress $'\e[34m' unknown $'\e[31m'
+  )
+else
+  bold= dim= reset=
+  typeset -A colour
+fi
+
+typeset -A counts
+shown=0
+projects=()
+out=()
+for project in .scratch/*(N/); do
+  scan $project
+  lines=()
+  for (( i = 1; i <= $#issue_files; i++ )); do
+    key=$issue_key[i]
+    (( show_all )) || (( ! ${closed[(Ie)$key]} )) || continue
+    counts[$key]=$(( ${counts[$key]:-0} + 1 ))
+    line="       ${${issue_files[i]:t}%%-*}  ${colour[$key]}${(r:16:)issue_status[i]}${reset}  ${issue_title[i]}"
+    [[ -n $issue_blockers[i] ]] && line+="  ${dim}(blocked by $issue_blockers[i])${reset}"
+    lines+=$line
+  done
+
+  (( $#lines )) || continue
+  (( shown++ )) && out+=('')
+  projects+=${project:a}
+  header="${(l:5:):-[$#projects]}  ${bold}${project:t}${reset}"
+  if [[ -f $project/spec.md ]]; then
+    spec_status=$(field Status $project/spec.md)
+    header+="  ${dim}spec${spec_status:+: ${spec_status}}${reset}"
+  else
+    header+="  ${dim}no spec${reset}"
+  fi
+  out+=($header $lines)
+done
+
+# Save before printing, so a reader that stops early (`| head`) can't leave a stale index.
+mkdir -p ${index:h}
+print -l -- $projects >| $index
+(( $#out )) && print -l -- "${out[@]}"
+
+if (( ! shown )); then
+  print "no open issues in .scratch"
+  exit 0
+fi
+
+summary=()
+for key in ${(ok)counts}; do summary+="${colour[$key]}${key}${reset} ${counts[$key]}"; done
+print "\n${(j:, :)summary}"

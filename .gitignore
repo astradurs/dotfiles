@@ -61,4 +61,5 @@ bin/*
 !bin/herdr-up
 !bin/node-kill
 !bin/node-ps
+!bin/scratch-issues
 !bin/task-sync-asana
