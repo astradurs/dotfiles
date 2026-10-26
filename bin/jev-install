@@ -203,4 +203,4 @@ if [[ ${#PENDING[@]} -gt 0 ]]; then
     done
     exit 1
 fi
-echo -e "${GREEN}Done.${RESET} jg is off in every project; opt one in with jev-optin."
+echo -e "${GREEN}Done.${RESET} Projects opt in and out with jev-optin (jev-optin status shows one)."

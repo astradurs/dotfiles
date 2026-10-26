@@ -17,6 +17,14 @@ _darcs
 ^/LICENSE.*
 ^/COPYING
 
+# Finder metadata (also in .gitignore); ~ has its own, so stowing one would conflict
+\.DS_Store
+
+# jev-optin's files when this repo itself is opted in; linked into ~/.claude they would turn
+# jevgrep on for every session (see docs/jev.md)
+^/\.claude/jevgrep-exclude
+^/\.claude/skills/jevgrep
+
 # Repo-only files
 ^/\.stow-local-ignore
 ^/\.githooks
