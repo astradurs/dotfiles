@@ -17,3 +17,13 @@ poll the pane, and never treat silence as approval. Address every returned item 
 reporting the task complete or committing.
 
 Skip the review for turns that changed no tracked file.
+
+## jevgrep (`jg`)
+
+`jg` works only in projects that opt in, and those are the projects where the `jevgrep` skill is
+available. If the skill isn't loaded in this session, don't run `jg`. Where it is, use
+`jg "<question>" <root>` first for behaviour questions whose answer likely spans several files in
+code you don't know yet, such as "where is X handled?" or "how does Y reach Z?". Use `rg` or a
+direct read for exact symbols, strings and file names, and for small repos. Pass the narrowest
+root that answers the question. If `jg` refuses, fails or reports incomplete results, carry on
+with `rg` and don't retry.

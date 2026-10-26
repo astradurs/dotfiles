@@ -1,0 +1,153 @@
+#!/bin/zsh
+# Wrapper for the pinned jevgrep CLI that bin/jev-install puts in ~/.local/share/jevgrep.
+#
+# jg sends source code to TypeSafe, so a search only runs when the project that contains its
+# search root has opted in (bin/jev-optin), whichever directory or session it is started from.
+# The wrapper also:
+#   - applies the project's .claude/jevgrep-exclude patterns at any search root,
+#   - refuses flags that widen what is sent (--include-sensitive, --no-ignore, --hidden),
+#   - caps output below Claude Code's ~30 KB inline limit, so Claude sees all of it,
+#   - stops a search after $JG_TIMEOUT_S seconds (default 90) if TypeSafe is slow,
+#   - uses the project's TypeSafe key (env.JEVGREP_KEY: "personal" or "work") and refuses
+#     to run unless those saved credentials use the TypeSafe provider.
+# `jg files` makes no requests, so it runs anywhere, with the same exclusions. See docs/jev.md.
+emulate -L zsh
+
+prefix=${XDG_DATA_HOME:-$HOME/.local/share}/jevgrep
+config=${XDG_CONFIG_HOME:-$HOME/.config}
+cache=${XDG_CACHE_HOME:-$HOME/.cache}
+bin=$prefix/node_modules/@dzhng/jevgrep/dist/bin/index.js
+timeout_s=${JG_TIMEOUT_S:-90}
+
+die() { print -u2 "jg: $1"; exit ${2:-1} }
+
+[[ -f $bin ]] || die "not installed; run jev-install"
+
+case $1 in
+  --version|-v|--help|-h|help) exec node $bin "$@" ;;
+  auth|skill) die "'jg $1' is managed by jev-install (TypeSafe provider, pinned skill)" ;;
+esac
+
+# Check the opt-in and rewrite the arguments: prints the project's key name, then the final
+# argv, NUL-separated.
+jg_args=$(python3 -I - "$@" <<'PY'
+import fnmatch, json, os, sys
+
+def fail(message, code=3):
+    print(f"jg: {message}", file=sys.stderr)
+    sys.exit(code)
+
+args = sys.argv[1:]
+takes_value = {"--max-requests", "--max-source-bytes", "--max-output-bytes", "--exclude", "--concurrency"}
+widening = {"--include-sensitive", "--no-ignore", "--hidden"}
+files = args[:1] == ["files"]
+flags, positional, i = [], [], 1 if files else 0
+while i < len(args):
+    a = args[i]
+    if a == "--":
+        positional += args[i + 1:]
+        break
+    if a.split("=", 1)[0] in widening:
+        fail(f"{a} would send more than the project's settings allow")
+    if a.startswith("-"):
+        flags.append(a)
+        if a in takes_value and i + 1 < len(args):
+            flags.append(args[i + 1])
+            i += 1
+    else:
+        positional.append(a)
+    i += 1
+if any(p.startswith("-") for p in positional):
+    fail("a question or root starting with '-' isn't supported by this wrapper")
+root_arg = (positional[0] if positional else ".") if files else (positional[1] if len(positional) > 1 else ".")
+root = os.path.realpath(root_arg)
+home = os.path.realpath(os.path.expanduser("~"))
+
+# The project is the nearest ancestor of the search root with a .claude/settings.local.json
+# (where Claude Code keeps per-project local settings). Home itself never counts.
+project, d = None, root
+while True:
+    if d != home and os.path.isfile(os.path.join(d, ".claude", "settings.local.json")):
+        project = d
+        break
+    parent = os.path.dirname(d)
+    if parent == d:
+        break
+    d = parent
+
+enabled, key = False, "personal"
+if project:
+    try:
+        env = json.load(open(os.path.join(project, ".claude", "settings.local.json"))).get("env", {})
+        enabled = env.get("JEVGREP_ENABLED") == "1"
+        key = env.get("JEVGREP_KEY", "personal")
+    except (OSError, ValueError, AttributeError):
+        pass
+if key not in ("personal", "work"):
+    fail(f"JEVGREP_KEY is {key!r} in {project}/.claude/settings.local.json; use personal or work")
+if not files and not enabled:
+    fail(f"not enabled for {root} (opt its project in with jev-optin)")
+
+# Exclusions are written relative to the project root; jg reads --exclude relative to the search
+# root, so rebase anchored patterns onto it. Unanchored patterns (no inner slash) apply anywhere.
+excludes = []
+rel = os.path.relpath(root, project) if project else "."
+rel = "" if rel == "." else rel.replace(os.sep, "/")
+path = os.path.join(project, ".claude", "jevgrep-exclude") if project else None
+for line in open(path).read().splitlines() if path and os.path.isfile(path) else []:
+    p = line.strip()
+    if not p or p.startswith("#"):
+        continue
+    if p.startswith("!"):
+        fail(f"negated pattern {p!r} in {path} isn't supported; list only what to skip")
+    anchored = "/" in p.rstrip("/")
+    if not anchored or not rel:
+        excludes.append(p)
+        continue
+    body = p.lstrip("/").rstrip("/")
+    parts, rel_parts = body.split("/"), rel.split("/")
+    head = parts[:len(rel_parts)]
+    if any(c in "".join(head) for c in "*?[") and len(parts) > 1:
+        fail(f"pattern {p!r} in {path} has wildcards above {rel}/; search from the project root")
+    if len(parts) <= len(rel_parts):
+        if all(fnmatch.fnmatchcase(r, h) for r, h in zip(rel_parts, parts)):
+            fail(f"{root} is excluded by {p!r} in {path}")
+        continue
+    if parts[:len(rel_parts)] == rel_parts:
+        excludes.append("/" + "/".join(parts[len(rel_parts):]) + ("/" if p.endswith("/") else ""))
+
+out = [key] + (["files"] if files else []) + flags
+for p in excludes:
+    out += ["--exclude", p]
+if not files and "--max-output-bytes" not in flags:
+    out += ["--max-output-bytes", "28000"]
+out += positional
+sys.stdout.write("\0".join(out))
+PY
+) || exit $?
+
+jg_args=("${(@0)jg_args}")
+key=$jg_args[1]
+shift jg_args
+
+# The work key lives in its own jg config (see bin/jev-install); never fall back to the other.
+if [[ $key == work ]]; then
+  config=$config/jevgrep-work
+  cache=$cache/jevgrep-work
+fi
+creds=$config/jevgrep/credentials.json
+if [[ $jg_args[1] != files ]]; then
+  [[ -f $creds ]] || die "no $key TypeSafe key saved; add it to ~/.secrets and run jev-install"
+  python3 -I - $creds <<'PY' || die "the $key credentials are not for the TypeSafe provider; run jev-install"
+import json, sys
+c = json.load(open(sys.argv[1]))
+sys.exit(0 if c.get("provider") == "typesafe" and not ({"baseURL", "model"} & c.keys()) else 1)
+PY
+fi
+
+# alarm survives exec, so node gets SIGALRM (exit 142) if the search runs too long.
+XDG_CONFIG_HOME=$config XDG_CACHE_HOME=$cache \
+  perl -e 'alarm shift; exec @ARGV or exit 127' $timeout_s node $bin "${jg_args[@]}"
+rc=$?
+(( rc == 142 )) && print -u2 "jg: stopped after ${timeout_s}s; carry on with rg"
+exit $rc

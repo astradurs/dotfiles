@@ -1,0 +1,138 @@
+#!/bin/zsh
+# Opt a project in or out of jevgrep (jg), which sends source code to TypeSafe.
+#
+#   jev-optin status [dir]   show whether the project is opted in and what a search may read
+#   jev-optin on [--work|--personal] [dir]
+#                            opt in, after showing what a search may read and asking you
+#   jev-optin off [dir]      opt out
+#
+# The project is [dir]'s git root, or [dir] itself outside git (default: current directory).
+# Opting in sets env.JEVGREP_ENABLED=1 in <project>/.claude/settings.local.json, which Claude
+# Code keeps out of git, and copies the jevgrep skill into <project>/.claude/skills/jevgrep/.
+# It also records which TypeSafe key the project's searches use, as env.JEVGREP_KEY: "work" for
+# projects under $WORK_REPOS_DIR, "personal" otherwise, unless --work or --personal says so.
+# Paths to keep from TypeSafe go in <project>/.claude/jevgrep-exclude: one gitignore pattern
+# per line, relative to the project root. ~/bin/jg enforces both. See docs/jev.md.
+#
+# "on" asks at your terminal (/dev/tty), so an agent or script can't opt a project in.
+emulate -L zsh
+
+skill=${0:A:h:h}/jev/skill/SKILL.md
+usage="usage: jev-optin status [dir] | on [--work|--personal] [dir] | off [dir]"
+
+die() { print -u2 "jev-optin: $1"; exit 1 }
+
+(( # >= 1 )) || die $usage
+cmd=$1
+shift
+key=
+if [[ $cmd == on && $1 == --(work|personal) ]]; then
+  key=${1#--}
+  shift
+fi
+(( # <= 1 )) || die $usage
+set -- ${1:-.}
+[[ -d $1 ]] || die "no such directory: $1"
+project=$(git -C $1 rev-parse --show-toplevel 2>/dev/null) || project=${1:A}
+[[ $project != ${HOME:A} ]] || die "refusing to opt in your whole home directory"
+settings=$project/.claude/settings.local.json
+exclude=$project/.claude/jevgrep-exclude
+
+# Set (on <key>) or remove (off) env.JEVGREP_ENABLED and env.JEVGREP_KEY, keeping everything
+# else in the file.
+set_switch() {
+  [[ $1 == off && ! -f $settings ]] && return
+  mkdir -p $project/.claude
+  python3 -I - $settings $1 $2 <<'PY'
+import json, os, sys
+path, state, key = (sys.argv[1:] + [""])[:3]
+s = json.load(open(path)) if os.path.exists(path) else {}
+env = s.setdefault("env", {})
+if state == "on":
+    env["JEVGREP_ENABLED"] = "1"
+    env["JEVGREP_KEY"] = key
+else:
+    env.pop("JEVGREP_ENABLED", None)
+    env.pop("JEVGREP_KEY", None)
+    if not env:
+        del s["env"]
+with open(path, "w") as f:
+    json.dump(s, f, indent=2)
+    f.write("\n")
+PY
+}
+
+# The key a project uses: env.JEVGREP_KEY, or "personal" when unset.
+current_key() {
+  python3 -I -c 'import json, os, sys
+p = sys.argv[1]
+print(json.load(open(p)).get("env", {}).get("JEVGREP_KEY", "personal") if os.path.exists(p) else "personal")' $settings
+}
+
+# Read y/N from the terminal itself, not stdin, so a script or agent can't answer; exit on no.
+ask() {
+  local reply
+  if ! { read -r reply < /dev/tty } 2>/dev/null; then
+    print
+    die "needs your answer at a terminal: run jev-optin yourself"
+  fi
+  [[ $reply == [yY] ]] || { print "No change."; exit 1 }
+}
+
+enabled() {
+  [[ -f $settings ]] && python3 -I -c 'import json, sys
+sys.exit(json.load(open(sys.argv[1])).get("env", {}).get("JEVGREP_ENABLED") != "1")' $settings
+}
+
+case $cmd in
+  status)
+    print "project:  $project"
+    if enabled; then print "jevgrep:  on, $(current_key) TypeSafe key"; else print "jevgrep:  off"; fi
+    [[ -f $project/.claude/skills/jevgrep/SKILL.md ]] && print "skill:    installed" || print "skill:    not installed"
+    if [[ -f $exclude ]]; then
+      print "excludes: $(grep -cvE '^[[:space:]]*(#|$)' $exclude) pattern(s) in $exclude"
+    else
+      print "excludes: none ($exclude)"
+    fi
+    print
+    ~/bin/jg files $project
+    ;;
+  on)
+    if [[ -z $key ]]; then
+      key=personal
+      [[ -n $WORK_REPOS_DIR && $project/ == ${WORK_REPOS_DIR:A}/* ]] && key=work
+    fi
+    if enabled; then
+      [[ $(current_key) == $key ]] && { print "jevgrep is already on for $project, with the $key TypeSafe key."; exit 0 }
+      print -n "Switch $project from the $(current_key) to the $key TypeSafe key? [y/N] "
+      ask
+      set_switch on $key
+      print "jevgrep is on for $project, now with the $key TypeSafe key."
+      exit 0
+    fi
+    if [[ ! -f $exclude ]]; then
+      mkdir -p $project/.claude
+      print -l '# Paths jg must never send to TypeSafe: one gitignore pattern per line, relative to' \
+        '# the project root. ~/bin/jg applies these at every search root. Examples:' \
+        '#   notes/private/' '#   *.pem' > $exclude
+    fi
+    ~/bin/jg files $project || die "jg files failed"
+    print
+    print "When Claude searches with jg, the contents of the files above can be sent to TypeSafe"
+    print "(api.typesafe.ai). To keep paths out, add them to $exclude"
+    print "and run this again."
+    print "Searches will use your $key TypeSafe key (--work or --personal to change)."
+    print -n "Opt $project in? [y/N] "
+    ask
+    set_switch on $key
+    mkdir -p $project/.claude/skills/jevgrep && cp $skill $project/.claude/skills/jevgrep/SKILL.md
+    print "jevgrep is on for $project, with the $key TypeSafe key."
+    print "Start a new Claude Code session there to load the skill."
+    ;;
+  off)
+    set_switch off
+    rm -rf $project/.claude/skills/jevgrep
+    print "jevgrep is off for $project."
+    ;;
+  *) die $usage ;;
+esac

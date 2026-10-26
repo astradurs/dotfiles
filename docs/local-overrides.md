@@ -14,7 +14,7 @@ you need.
 | `~/.profile.local` | end of `.profile` (so both zsh and bash) | env vars and aliases shared by both shells: work paths, project `cd` aliases, your work git author |
 | `~/.zshrc.local` | last line of `.zshrc` | zsh-only settings, and anything that must override what `.zshrc` sets |
 | `~/.bashrc.local` | last line of `.bashrc` | bash-only settings |
-| `~/.secrets` | `.zshrc`, before `.profile` | tokens and API keys (`export ASANA_PAT=...`). Keep it `chmod 600` |
+| `~/.secrets` | `.zshrc`, before `.profile` | tokens and API keys (`export ASANA_PAT=...`, `TYPESAFE_API_KEY` and `TYPESAFE_API_KEY_WORK` for [jevgrep](jev.md)). Keep it `chmod 600` |
 | `~/.gitconfig.local` | `[include]` in `.gitconfig` | git `user.name` / `user.email`, credential helpers, per-machine git settings |
 | `~/.config/daily-report/repos` | `bin/daily-report` | which repos the daily report scans |
 | `~/.config/herdr/profiles.local/<name>.zsh` | `bin/herdr-up`, after `profiles/<name>.zsh` | the workspaces a Herdr profile opens, or a whole machine-only profile |
@@ -62,6 +62,8 @@ export ASANA_WORKSPACE_GID="1234567890"
 
 ```sh
 export ASANA_PAT="..."
+export TYPESAFE_API_KEY="..."        # bin/jev-install, see jev.md
+export TYPESAFE_API_KEY_WORK="..."   # optional: work projects' key
 ```
 
 Create it with `install -m 600 /dev/null ~/.secrets` so it is never world-readable.

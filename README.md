@@ -16,6 +16,7 @@ This repository contains configuration files for:
 - **Neofetch**: System information tool
 - **Spotify Player**: Terminal Spotify client
 - **Taskwarrior**: Task management with custom UDAs and reports ([docs](docs/taskwarrior.md))
+- **jevgrep**: `jg`, a TypeSafe Jev code search for Claude Code, off until a project opts in ([docs](docs/jev.md))
 
 ## Prerequisites
 

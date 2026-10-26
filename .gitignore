@@ -59,6 +59,9 @@ bin/*
 !bin/daily-report
 !bin/dotfiles-bootstrap
 !bin/herdr-up
+!bin/jev-install
+!bin/jev-optin
+!bin/jg
 !bin/node-kill
 !bin/node-ps
 !bin/scratch-issues

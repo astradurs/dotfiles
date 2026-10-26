@@ -1,1 +1,4 @@
 **/.claude/settings.local.json
+# Added to projects by jev-optin (see docs/jev.md in ~/dotfiles)
+**/.claude/skills/jevgrep/
+**/.claude/jevgrep-exclude

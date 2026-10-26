@@ -20,3 +20,4 @@ _darcs
 # Repo-only files
 ^/\.stow-local-ignore
 ^/\.githooks
+^/jev
