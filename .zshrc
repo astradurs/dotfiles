@@ -158,11 +158,12 @@ git-pull() {
 }
 alias gpl="git-pull"
 # Personal commands drop an inherited CLAUDE_CONFIG_DIR (e.g. from a Herdr server started in a work shell).
-# Work aliases use `command claude` so they don't expand the `claude` alias and lose their config dir.
+# Work aliases use `command claude` so they don't expand the `claude` alias and lose their config dir,
+# and hand the work TypeSafe key to plugins that read TYPESAFE_API_KEY (switchboard's Jev picker).
 alias claude="env -u CLAUDE_CONFIG_DIR claude"
-alias claude-work="CLAUDE_CONFIG_DIR=~/.claude-work command claude"
+alias claude-work="CLAUDE_CONFIG_DIR=~/.claude-work TYPESAFE_API_KEY=\$TYPESAFE_API_KEY_WORK command claude"
 alias yolo="env -u CLAUDE_CONFIG_DIR claude --dangerously-skip-permissions"
-alias yolo-work="CLAUDE_CONFIG_DIR=~/.claude-work command claude --dangerously-skip-permissions"
+alias yolo-work="CLAUDE_CONFIG_DIR=~/.claude-work TYPESAFE_API_KEY=\$TYPESAFE_API_KEY_WORK command claude --dangerously-skip-permissions"
 # Herdr sessions per context; profiles in ~/.config/herdr/profiles. Add --seed to reopen missing defaults.
 alias hw="herdr-up work"
 alias hh="herdr-up home"
