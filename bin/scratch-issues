@@ -16,6 +16,11 @@
 #
 # Expects the ai-hero layout: .scratch/<project>/{spec.md,issues/<NN>-<name>.md}, where each
 # issue has a "Status: <status>" line and optionally a "Blocked by: <ids>" line.
+#
+# Without a .scratch directory, it lists the GitHub issues of the origin remote instead, with a
+# triage label (ready-for-agent, needs-info, ...) as the status. That listing is numbered by issue
+# number: `scratch-issues <n>` opens issue #n with gh (in the browser with -e), and `next` opens the
+# lowest-numbered open ready-for-agent issue.
 emulate -L zsh
 setopt extended_glob
 
@@ -56,10 +61,36 @@ scan() {
   done
 }
 
+# OWNER/REPO of the origin remote, prefixed with HOST/ when it isn't github.com.
+origin_repo() {
+  local url host repo
+  url=$(git remote get-url origin 2>/dev/null) || return 1
+  if [[ $url == *://* ]]; then  # https://host/o/r, ssh://git@host:22/o/r
+    url=${${url#*://}#*@} host=${${url%%/*}%%:*} repo=${url#*/}
+  elif [[ $url == *:* ]]; then  # git@host:o/r
+    url=${url#*@} host=${url%%:*} repo=${url#*:}
+  else
+    return 1
+  fi
+  repo=${${repo%/}%.git}
+  [[ $repo == */* ]] || return 1
+  print -r -- ${${host:#github.com}:+$host/}$repo
+}
+
+# The last listing, one entry per line: project dirs, or "github:<repo>" then "<n>:<title>" lines.
+# Sets gh_repo when it was a GitHub listing.
+last_listing() {
+  [[ -f $index ]] || { print -u2 "no listing yet; run scratch-issues first"; exit 1 }
+  listing=(${(f)"$(<$index)"})
+  gh_repo=
+  [[ ${listing[1]:-} == github:* ]] && gh_repo=${listing[1]#github:}
+}
+
 # Project dir [$1] of the last listing.
 project_at() {
-  [[ -f $index ]] || { print -u2 "no listing yet; run scratch-issues first"; exit 1 }
-  local -a projects=(${(f)"$(<$index)"})
+  last_listing
+  [[ -z $gh_repo ]] || { print -u2 "the last listing was GitHub issues for $gh_repo; run scratch-issues in a .scratch repo first"; exit 1 }
+  local -a projects=($listing)
   project=${projects[$1]}
   [[ -n $project ]] || { print -u2 "no project [$1] in the last listing ($#projects projects)"; exit 1 }
   [[ -d $project ]] || { print -u2 "$project no longer exists"; exit 1 }
@@ -72,8 +103,26 @@ open_file() {
   fi
 }
 
+open_github() {
+  if (( edit )); then exec gh issue view $1 -R $gh_repo --web
+  else exec gh issue view $1 -R $gh_repo
+  fi
+}
+
+# Repo of the origin remote into gh_repo, for when there's no .scratch here; otherwise exits with
+# status $1.
+need_github() {
+  gh_repo=$(origin_repo) || { print -u2 "no .scratch directory or origin remote here"; exit $1 }
+  (( $+commands[gh] )) || { print -u2 "no .scratch directory, and gh isn't installed to read $gh_repo issues"; exit $1 }
+  [[ $gh_repo != */*/* ]] || gh auth status -h ${gh_repo%%/*} &>/dev/null ||
+    { print -u2 "no .scratch directory, and origin (${gh_repo%%/*}) isn't a GitHub host gh is logged in to"; exit $1 }
+}
+
 if [[ ${1:-} == --complete ]]; then
-  if [[ ${2:-} == <1-> ]]; then
+  [[ -f $index ]] && last_listing
+  if [[ -n $gh_repo ]]; then
+    [[ -n ${2:-} ]] || print -l -- $listing[2,-1]
+  elif [[ ${2:-} == <1-> ]]; then
     project_at $2 2>/dev/null
     scan $project
     for (( i = 1; i <= $#issue_files; i++ )); do
@@ -101,7 +150,14 @@ if [[ ${args[1]:-} == next ]]; then
     project_at $args[2]
     candidates=($project)
   elif (( $#args == 1 )); then
-    [[ -d .scratch ]] || { print -u2 "no .scratch directory here; use: scratch-issues next <p>"; exit 1 }
+    if [[ ! -d .scratch ]]; then
+      need_github 1
+      next=$(gh issue list -R $gh_repo -l ready-for-agent -L 200 --json number,title \
+        -q 'sort_by(.number) | .[0] // empty | "\(.number)\t\(.title)"') || exit 1
+      [[ -n $next ]] || { print -u2 "no ready-for-agent issue in $gh_repo"; exit 1 }
+      print -r -- "$gh_repo #${next%%$'\t'*}: ${next#*$'\t'}"
+      open_github ${next%%$'\t'*}
+    fi
     candidates=(.scratch/*(N/))
   else
     print -u2 $usage; exit 2
@@ -120,6 +176,11 @@ fi
 
 if (( $#args )); then
   [[ $#args -le 2 && $args[1] == <1-> && ${args[2]:-1} == <1-> ]] || { print -u2 $usage; exit 2 }
+  last_listing
+  if [[ -n $gh_repo ]]; then
+    (( $#args == 1 )) || { print -u2 "the last listing was GitHub issues for $gh_repo; use: scratch-issues <n>"; exit 2 }
+    open_github $args[1]
+  fi
   project_at $args[1]
   if (( $#args == 2 )); then
     # Any zero-padding: 3, 03 and 003 all open 03-*.md.
@@ -131,8 +192,6 @@ if (( $#args )); then
   open_file $project/spec.md
 fi
 
-[[ -d .scratch ]] || { print "no .scratch directory available"; exit 0 }
-
 if [[ -t 1 ]]; then
   bold=$'\e[1m' dim=$'\e[2m' reset=$'\e[0m'
   typeset -A colour=(
@@ -142,6 +201,47 @@ if [[ -t 1 ]]; then
 else
   bold= dim= reset=
   typeset -A colour
+fi
+
+summarise() {
+  local key summary=()
+  for key in ${(ok)counts}; do summary+="${colour[$key]}${key}${reset} ${counts[$key]}"; done
+  print "\n${(j:, :)summary}"
+}
+
+if [[ ! -d .scratch ]]; then
+  need_github 0
+  (( show_all )) && state=all || state=open
+  issues=$(gh issue list -R $gh_repo -s $state -L 200 --json number,state,labels,title \
+    -q '.[] | [.number, .state, ([.labels[].name] | join(",")), .title] | @tsv') || exit 1
+  typeset -A counts
+  entries=() out=()
+  # gh lists newest first, so the first issue has the widest number.
+  width=$(( ${#${issues%%$'\t'*}} + 1 ))
+  while IFS=$'\t' read -r num gh_state labels title; do
+    [[ -n $num ]] || continue
+    labels=(${(s:,:)labels})
+    # A triage label stands in for the status of an open issue; closed ones are just closed.
+    key=${gh_state:l}
+    if [[ $key == open ]]; then
+      for label in $labels; do
+        (( $+colour[$label] )) || [[ $label == (needs-*|ready-for-*|in-progress|blocked) ]] || continue
+        key=$label; labels=(${labels:#$label}); break
+      done
+    fi
+    counts[$key]=$(( ${counts[$key]:-0} + 1 ))
+    line="    ${(l:$width:):-#$num}  ${colour[$key]}${(r:16:)key}${reset}  $title"
+    (( $#labels )) && line+="  ${dim}(${(j:, :)labels})${reset}"
+    out+=$line
+    entries+="$num:$title"
+  done <<< $issues
+
+  mkdir -p ${index:h}
+  print -l -- "github:$gh_repo" $entries >| $index
+  (( $#out )) || { print "no ${${state:#all}:+open }issues in $gh_repo"; exit 0 }
+  print -l -- "${bold}$gh_repo${reset}  ${dim}GitHub issues${reset}" "${out[@]}"
+  summarise
+  exit 0
 fi
 
 typeset -A counts
@@ -183,6 +283,4 @@ if (( ! shown )); then
   exit 0
 fi
 
-summary=()
-for key in ${(ok)counts}; do summary+="${colour[$key]}${key}${reset} ${counts[$key]}"; done
-print "\n${(j:, :)summary}"
+summarise

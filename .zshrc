@@ -172,6 +172,7 @@ alias bupg="brew upgrade"
 # Open .scratch issues (ai-hero layout) in the current directory; -a includes closed ones.
 # Projects are numbered, scm_breeze style: `issue <p>` opens the spec, `issue <p> <i>` issue <i>,
 # `issue next` the first unblocked ready-for-agent issue; add -e to open in $EDITOR.
+# Without .scratch it lists origin's GitHub issues: `issue <n>` opens #n (-e: in the browser).
 alias issues="scratch-issues"
 alias issue="scratch-issues"
 # Completes project numbers, then that project's issue numbers, from the last listing.
